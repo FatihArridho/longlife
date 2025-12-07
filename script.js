@@ -1,9 +1,14 @@
 /* ========================
-   script.js (final + walker animation)
-   - photobooth capture clean (no sprinkle)
-   - smiley + footer on main canvas
-   - face detection in preview (if available)
-   - walker animation: people walking right -> left, repeating
+   script.js (complete)
+   - clean photobooth capture (no sparkle/confetti in downloaded photo)
+   - pixelate option, camera switch, face detection preview
+   - main canvas: cake, smiley, "made with fatih"
+   - effects: fireworks, confetti, snow (visual only)
+   - walkers (right->left) under cake
+   - dancers (top-left + top-right) — enhanced:
+       * multiple dancers
+       * different shirt colors
+       * 4-frame dance + occasional jump
    ======================== */
 
 /* ---------- ELEMENTS ---------- */
@@ -35,10 +40,10 @@ const ectx = effectCanvas.getContext('2d');
 
 let isCrtOn = false;
 
-/* ---------- UTILS ---------- */
+/* ---------- UTIL ---------- */
 function rand(a,b){ return Math.random()*(b-a)+a; }
 
-/* ---------- RESIZE FIX (prevent scale 0) ---------- */
+/* ---------- RESIZE FIX ---------- */
 function resizeCanvas(){
   const wrap = document.getElementById('canvas-wrap');
   const maxW = Math.min(window.innerWidth * 0.95, 800);
@@ -55,7 +60,7 @@ function resizeCanvas(){
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
-/* ---------- PIXEL ART DRAW (cake + smile + footer text) ---------- */
+/* ---------- PIXEL ART (cake, smile, footer) ---------- */
 function drawPixelSprite(data, x, y, scale = 1){
   const palette = ['#ff0000','#0000ff','#ffff00','#00ff00','#800080','#ffa500','#ffffff','#000000'];
   for(let r=0;r<data.length;r++){
@@ -78,94 +83,181 @@ const cakeData = [
 
 let lightBlink = 0;
 
-/* ---------- WALKER (people walking right->left) ---------- */
+/* ---------- DANCERS (top left + right) ---------- */
 /*
-  Implementation:
-  - walkers[] contains multiple walker objects { x, y, speed, frameTimer, frameIndex, scale }
-  - drawWalker draws a small pixel-person using rectangles; two leg frames alternate
-  - updateWalkers moves them left; when off-left, jump to right (loop)
+  dancers[] items:
+  { x, y, originX, originY, frame, timer, color, flip, jumpTimer }
+  - frame: 0..3 (4-frame dance)
+  - flip: if true, mirror horizontally (for right-side dancer)
+  - jumpTimer: occasional small jump
 */
-const walkers = [];
-const WALKER_COUNT = 4;
+const dancers = [];
 
-function createWalker(startX, y, speed, scale=1.0) {
-  return {
-    x: startX,
-    y,
-    speed,
-    scale,
-    frameTimer: 0,
-    frameIndex: 0 // 0 or 1 for two-step walking
-  };
+// create several dancers: left cluster and right cluster with color variety
+function initDancers() {
+  dancers.length = 0;
+  const leftX = 120, rightX = 630;
+  const y = 62; // baseline near header
+  const colors = ['#ff6b6b', '#ffd166', '#6bcB77'.toLowerCase(), '#7ec8ff'.toLowerCase(), '#d291ff'];
+  // left group: 2 dancers
+  for (let i=0;i<2;i++){
+    dancers.push({
+      x: leftX + i*28,
+      y: y + (i%2===0?0:2),
+      originX: leftX + i*28,
+      originY: y + (i%2===0?0:2),
+      frame: Math.floor(Math.random()*4),
+      timer: Math.floor(Math.random()*10),
+      color: colors[i % colors.length],
+      flip: false,
+      jumpTimer: 0
+    });
+  }
+  // right group: 2 dancers (mirrored)
+  for (let i=0;i<2;i++){
+    dancers.push({
+      x: rightX + i*28,
+      y: y + (i%2===0?0:2),
+      originX: rightX + i*28,
+      originY: y + (i%2===0?0:2),
+      frame: Math.floor(Math.random()*4),
+      timer: Math.floor(Math.random()*10),
+      color: colors[(i+2) % colors.length],
+      flip: true,
+      jumpTimer: 0
+    });
+  }
+}
+initDancers();
+
+// draw single dancer at logical coordinates using small pixel person with shirt color and 4 frames + jump offset
+function drawDancer(ctx, x, y, color, frame, flip=false, jump=0) {
+  // base scale — dancer size small
+  const px = 2;
+  // apply jump vertical offset
+  const jy = -Math.max(0, jump); // negative means up
+  // head
+  ctx.fillStyle = '#ffffff';
+  const headX = x + (flip ? px*2 : px*2);
+  ctx.fillRect(headX, y + 0*px + jy, 2*px, 2*px);
+  // shirt/body (color)
+  ctx.fillStyle = color;
+  ctx.fillRect(x + 2*px, y + 2*px + jy, 2*px, 3*px);
+  // arms depend on frame
+  ctx.fillStyle = color;
+  if (frame === 0) {
+    // arms down
+    ctx.fillRect(x + px*1, y + 3*px + jy, px, 2*px);
+    ctx.fillRect(x + px*4, y + 3*px + jy, px, 2*px);
+  } else if (frame === 1) {
+    // arms up
+    ctx.fillRect(x + px*1, y + 1*px + jy, px, 2*px);
+    ctx.fillRect(x + px*4, y + 1*px + jy, px, 2*px);
+  } else if (frame === 2) {
+    // one arm up, one down
+    ctx.fillRect(x + px*1, y + 3*px + jy, px, 2*px);
+    ctx.fillRect(x + px*4, y + 1*px + jy, px, 2*px);
+  } else {
+    // opposite
+    ctx.fillRect(x + px*1, y + 1*px + jy, px, 2*px);
+    ctx.fillRect(x + px*4, y + 3*px + jy, px, 2*px);
+  }
+  // legs: simple stepping by frame
+  ctx.fillStyle = '#ffffff';
+  if (frame % 2 === 0) {
+    ctx.fillRect(x + 2*px, y + 5*px + jy, px, 2*px);
+    ctx.fillRect(x + 3*px, y + 5*px + jy, px, 2*px);
+  } else {
+    ctx.fillRect(x + 1*px, y + 5*px + jy, px, 2*px);
+    ctx.fillRect(x + 4*px, y + 5*px + jy, px, 2*px);
+  }
+  // small eye
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(x + 2*px, y + 1*px + jy, 1*px, 1*px);
 }
 
-// initialize walkers: spread horizontally starting off-right
+// update & draw all dancers (frame stepping + occasional jump)
+function updateAndDrawDancers() {
+  for (const d of dancers) {
+    d.timer++;
+    // step frames quicker if timer big
+    if (d.timer > 8) {
+      d.timer = 0;
+      d.frame = (d.frame + 1) % 4; // 4-frame dance
+      // occasional jump: 6% chance when frame resets
+      if (Math.random() < 0.06 && d.jumpTimer <= 0) {
+        d.jumpTimer = 8 + Math.floor(Math.random()*12); // duration of jump in ticks
+      }
+    }
+    // manage jump timer countdown
+    let jumpOffset = 0;
+    if (d.jumpTimer > 0) {
+      // create a small hop curve: up then down
+      const half = Math.floor(d.jumpTimer / 2);
+      const progress = d.jumpTimer;
+      // smoother small hop using simple mapping
+      jumpOffset = Math.sin((progress / (half + 1)) * Math.PI) * 6; // amplitude ~6px
+      d.jumpTimer--;
+    }
+    drawDancer(ctx, Math.round(d.x), Math.round(d.y - jumpOffset), d.color, d.frame, d.flip, jumpOffset);
+  }
+}
+
+/* ---------- WALKER (people walking under cake) ---------- */
+const walkers = [];
+const WALKER_COUNT = 4;
+function createWalker(startX, y, speed, scale=1.0) {
+  return { x: startX, y, speed, scale, frameTimer: 0, frameIndex: 0 };
+}
 function initWalkers() {
   walkers.length = 0;
-  const baseY = 440; // vertical position under cake
+  const baseY = 440;
   for (let i = 0; i < WALKER_COUNT; i++) {
     const gap = 140;
-    const startX = 900 + i * gap + rand(0, 80); // start off-canvas to the right
-    const speed = rand(0.6, 1.6); // pixels per frame
-    const scale = 2; // pixel scale for walker (bigger = blockier)
+    const startX = 900 + i * gap + rand(0, 80);
+    const speed = rand(0.6, 1.6);
+    const scale = 2;
     walkers.push(createWalker(startX, baseY, speed, scale));
   }
 }
 initWalkers();
 
-// draws a pixel-person at logical coordinates (x,y) using ctx; scale is multiplier for pixel blocks
-// frameIndex toggles leg positions
 function drawWalker(ctx, x, y, scale, frameIndex) {
-  // simple pixel person composition (head, body, arms, legs)
-  // coordinate system: x,y is top-left of a small 8x8 pixel person before scaling
-  // we'll design a 6x8 pixel canvas for the person
   const px = scale;
-  // head (2x2)
+  // head
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(x + 2*px, y + 0*px, 2*px, 2*px);
-  // body (2x3)
+  // body
   ctx.fillRect(x + 2*px, y + 2*px, 2*px, 3*px);
-  // arms (left + right)
+  // arms
   ctx.fillRect(x + 1*px, y + 2*px, 1*px, 2*px);
   ctx.fillRect(x + 4*px, y + 2*px, 1*px, 2*px);
-  // legs - two frames for walking
+  // legs
   if (frameIndex % 2 === 0) {
-    // frame A: left forward, right back
-    ctx.fillRect(x + 2*px, y + 5*px, 1*px, 2*px); // left leg
-    ctx.fillRect(x + 3*px, y + 5*px, 1*px, 2*px); // right leg (slightly back same)
+    ctx.fillRect(x + 2*px, y + 5*px, 1*px, 2*px);
+    ctx.fillRect(x + 3*px, y + 5*px, 1*px, 2*px);
   } else {
-    // frame B: left back, right forward (shift a bit horizontally to simulate step)
-    ctx.fillRect(x + 1*px, y + 5*px, 1*px, 2*px); // left leg back-shift
-    ctx.fillRect(x + 4*px, y + 5*px, 1*px, 2*px); // right leg forward-shift
+    ctx.fillRect(x + 1*px, y + 5*px, 1*px, 2*px);
+    ctx.fillRect(x + 4*px, y + 5*px, 1*px, 2*px);
   }
-  // optional small eye pixel to add character
   ctx.fillStyle = '#000000';
   ctx.fillRect(x + 2*px, y + 1*px, 1*px, 1*px);
 }
 
-// Update & draw walkers each frame
 function updateAndDrawWalkers() {
   for (const w of walkers) {
-    // update position
     w.x -= w.speed;
-    // frame timer tick
     w.frameTimer++;
-    if (w.frameTimer > (12 - Math.floor(w.speed*4))) { // faster walkers toggle faster
+    if (w.frameTimer > (12 - Math.floor(w.speed*4))) {
       w.frameTimer = 0;
       w.frameIndex = (w.frameIndex + 1) % 2;
     }
-    // when off left side, reset to right side (loop)
     if (w.x < -40) {
-      // place off-right with small random offset
       w.x = 820 + rand(0, 240);
-      // randomize speed a bit
       w.speed = rand(0.6, 1.6);
       w.frameIndex = 0;
     }
-    // draw walker - use integer positions for crisp pixel rendering
-    const drawX = Math.round(w.x);
-    const drawY = Math.round(w.y);
-    drawWalker(ctx, drawX, drawY, Math.round(w.scale * 2), w.frameIndex);
+    drawWalker(ctx, Math.round(w.x), Math.round(w.y), Math.round(w.scale * 2), w.frameIndex);
   }
 }
 
@@ -175,15 +267,18 @@ function drawScene(){
   // background
   ctx.fillStyle = '#000'; ctx.fillRect(0,0,800,600);
 
-  // banner text (pixel-like)
+  // banner text
   ctx.fillStyle = '#fff';
   ctx.font = '18px monospace';
-  ctx.fillText('HAPPY BIRTHDAY!', 280, 80);
+  ctx.fillText('HAPPY BIRTHDAY FATIH!', 280, 80);
+
+  // dancers (top left + right)
+  updateAndDrawDancers();
 
   // cake sprite
   drawPixelSprite(cakeData, 360, 240, 12);
 
-  // draw smiley ":)" below cake (centered)
+  // draw smiley ":)" below cake
   ctx.save();
   ctx.fillStyle = '#ffffff';
   ctx.font = '28px "Press Start 2P", monospace';
@@ -207,14 +302,15 @@ function drawScene(){
     ctx.fillStyle = '#ff0'; ctx.fillRect(100,100,8,8); ctx.fillRect(692,100,8,8);
   }
 
-  // walkers (under the cake area)
+  // walkers under cake
   updateAndDrawWalkers();
 
   lightBlink++;
   requestAnimationFrame(drawScene);
 }
 
-/* ---------- EFFECTS (fireworks, confetti, snow) ---------- */
+/* ---------- EFFECTS (visual only) ---------- */
+/* Snow */
 const snow = [];
 class SnowFlake {
   constructor() { this.x = rand(0,800); this.y = rand(-600,0); this.vy = rand(0.4,1.2); this.vx = rand(-0.4,0.4); this.size = rand(1.2,3.2); }
@@ -223,6 +319,7 @@ class SnowFlake {
 }
 for (let i=0;i<120;i++) snow.push(new SnowFlake());
 
+/* Fireworks & confetti (visual only) */
 const fw_launchers = [];
 const fw_sparks = [];
 class FireworkLauncher { constructor(x){ this.x = x ?? rand(80,720); this.y=600; this.vy=rand(-7.5,-5.5); this.vx=rand(-1.2,1.2); this.color = `hsl(${rand(0,360)},100%,50%)`; this.exploded=false; } update(){ if (!this.exploded){ this.x += this.vx; this.y += this.vy; this.vy += 0.18; if (this.vy >= -1.0) this.exploded = true; } } draw(g){ if (!this.exploded){ g.fillStyle = this.color; g.beginPath(); g.arc(this.x,this.y,3,0,Math.PI*2); g.fill(); } } }
@@ -282,7 +379,8 @@ document.addEventListener('DOMContentLoaded', () => {
   startScreen.classList.add('hidden');
   mainScene.classList.remove('hidden');
   resizeCanvas();
-  initWalkers(); // ensure walkers initialized/responsive
+  initWalkers();
+  initDancers();
   drawScene();
   drawEffects();
 });
@@ -291,7 +389,7 @@ document.addEventListener('DOMContentLoaded', () => {
 openLetterBtn.addEventListener('click', () => letterModal.classList.remove('hidden'));
 closeLetterBtn.addEventListener('click', () => letterModal.classList.add('hidden'));
 
-/* kirim */
+/* kirim (WA) */
 kirimBtn.addEventListener('click', () => {
   const msg = birthdayMessage.value.trim();
   if (!msg) { alert('Pesan tidak boleh kosong!'); return; }
@@ -302,26 +400,24 @@ kirimBtn.addEventListener('click', () => {
   downloadBtn.classList.remove('hidden');
 });
 
-/* crt toggle */
+/* CRT toggle */
 crtToggle.addEventListener('click', () => { isCrtOn = !isCrtOn; document.body.classList.toggle('crt-on', isCrtOn); });
 
-/* ---------- PHOTO BOOTH: camera + pixelate + switch camera + face detection (unchanged) ---------- */
-
+/* ---------- PHOTO BOOTH: camera + pixelate + switch camera + face detection ---------- */
 let mediaStream = null;
-let facingMode = 'user'; // 'user' or 'environment'
+let facingMode = 'user';
 let pixelateEnabled = false;
 
-// camera effect canvas logical size
+// effect canvas for camera preview
 cameraEffectCanvas.width = 800; cameraEffectCanvas.height = 600;
 const camECTX = cameraEffectCanvas.getContext('2d');
 camECTX.imageSmoothingEnabled = false;
 
-/* dynamic UI controls inside photobooth modal */
 function ensurePhotoUI(){
   const card = photoboothModal.querySelector('.pixel-card');
   if (!card) return;
   let extraRow = card.querySelector('.photobooth-extras');
-  if (extraRow) return; // already added
+  if (extraRow) return;
 
   extraRow = document.createElement('div');
   extraRow.className = 'photobooth-extras';
@@ -331,7 +427,6 @@ function ensurePhotoUI(){
   extraRow.style.justifyContent = 'center';
   extraRow.style.alignItems = 'center';
 
-  // toggle camera button
   const toggleCameraBtn = document.createElement('button');
   toggleCameraBtn.className = 'pixel-btn';
   toggleCameraBtn.style.padding = '6px 10px';
@@ -341,7 +436,6 @@ function ensurePhotoUI(){
     await restartCamera();
   });
 
-  // pixelate checkbox
   const pixelWrap = document.createElement('label');
   pixelWrap.style.display = 'flex';
   pixelWrap.style.alignItems = 'center';
@@ -368,12 +462,11 @@ function ensurePhotoUI(){
   extraRow.appendChild(toggleCameraBtn);
   extraRow.appendChild(pixelWrap);
 
-  // insert before modal actions row
   const actions = card.querySelector('.modal-actions');
   card.insertBefore(extraRow, actions);
 }
 
-/* Face detection: use FaceDetector API if available */
+/* FaceDetector usage if available (graceful fallback) */
 let faceDetector = null;
 let faceDetectionEnabled = false;
 if ('FaceDetector' in window) {
@@ -382,29 +475,17 @@ if ('FaceDetector' in window) {
     faceDetectionEnabled = true;
     console.log('FaceDetector available');
   } catch (e) {
-    faceDetector = null;
-    faceDetectionEnabled = false;
-    console.warn('FaceDetector init failed', e);
+    faceDetector = null; faceDetectionEnabled = false; console.warn('FaceDetector init failed', e);
   }
 } else {
-  faceDetector = null;
-  faceDetectionEnabled = false;
-  console.log('FaceDetector not supported in this browser');
+  faceDetector = null; faceDetectionEnabled = false; console.log('FaceDetector not supported');
 }
 
-/* start camera with given facingMode */
 async function startCamera(){
   try {
     ensurePhotoUI();
     stopCamera();
-    const constraints = {
-      video: {
-        facingMode: { ideal: facingMode },
-        width: { ideal: 1280 },
-        height: { ideal: 720 }
-      },
-      audio: false
-    };
+    const constraints = { video: { facingMode: { ideal: facingMode }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false };
     mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
     cameraVideo.srcObject = mediaStream;
     await cameraVideo.play();
@@ -416,25 +497,9 @@ async function startCamera(){
     photoboothModal.classList.add('hidden');
   }
 }
+async function restartCamera(){ stopCamera(); await new Promise(r=>setTimeout(r,180)); await startCamera(); }
+function stopCamera(){ if (mediaStream) { mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; } cameraVideo.pause(); cameraVideo.srcObject=null; camECTX.clearRect(0,0,800,600); }
 
-/* restart camera (used for switching facingMode) */
-async function restartCamera(){
-  stopCamera();
-  await new Promise(r => setTimeout(r, 180));
-  await startCamera();
-}
-
-function stopCamera(){
-  if (mediaStream) {
-    mediaStream.getTracks().forEach(t => t.stop());
-    mediaStream = null;
-  }
-  cameraVideo.pause();
-  cameraVideo.srcObject = null;
-  camECTX.clearRect(0,0,cameraEffectCanvas.width,cameraEffectCanvas.height);
-}
-
-/* draw preview + face detection boxes (no sparkles) */
 let lastDetectionTime = 0;
 async function drawCameraPreviewAndDetect(timestamp){
   camECTX.clearRect(0,0,800,600);
@@ -449,10 +514,8 @@ async function drawCameraPreviewAndDetect(timestamp){
       const dctx = detectCanvas.getContext('2d');
       const vw = cameraVideo.videoWidth, vh = cameraVideo.videoHeight;
       const scale = Math.max(320 / vw, detectCanvas.height / vh);
-      const sw = 320 / scale;
-      const sh = detectCanvas.height / scale;
-      const sx = Math.max(0, (vw - sw) / 2);
-      const sy = Math.max(0, (vh - sh) / 2);
+      const sw = 320 / scale; const sh = detectCanvas.height / scale;
+      const sx = Math.max(0, (vw - sw) / 2); const sy = Math.max(0, (vh - sh) / 2);
       dctx.drawImage(cameraVideo, sx, sy, sw, sh, 0, 0, 320, detectCanvas.height);
 
       const faces = await faceDetector.detect(detectCanvas);
@@ -485,17 +548,14 @@ async function drawCameraPreviewAndDetect(timestamp){
   }
 }
 
-/* capture frame -> optional pixelate -> add footer -> download
-   IMPORTANT: no confetti, no fireworks, no sparkle in capture */
+/* capture -> pixelate (optional) -> add footer -> download (CLEAN: no effects) */
 async function captureAndDownload(){
   const vw = cameraVideo.videoWidth, vh = cameraVideo.videoHeight;
   if (!vw || !vh) { alert('Video belum siap, coba lagi'); return; }
 
-  // out canvas 800x600
   const out = document.createElement('canvas'); out.width = 800; out.height = 600;
   const outCtx = out.getContext('2d');
 
-  // compute cover scaling
   const scale = Math.max(800 / vw, 600 / vh);
   const sw = 800 / scale; const sh = 600 / scale; const sx = (vw - sw) / 2; const sy = (vh - sh) / 2;
 
@@ -512,7 +572,7 @@ async function captureAndDownload(){
     outCtx.drawImage(cameraVideo, sx, sy, sw, sh, 0, 0, 800, 600);
   }
 
-  // small "made with fatih" footer (pixel font) centered near bottom
+  // add small "made with fatih" footer (pixel font) centered near bottom
   outCtx.save();
   outCtx.fillStyle = '#ffffff';
   outCtx.font = '9px "Press Start 2P", monospace';
@@ -520,14 +580,13 @@ async function captureAndDownload(){
   const footerText = 'made with fatih';
   const footerW = outCtx.measureText(footerText).width;
   const footerX = (800 - footerW) / 2;
-  const footerY = 600 - 10; // 10px from bottom edge
+  const footerY = 600 - 10;
   outCtx.fillText(footerText, footerX, footerY);
   outCtx.restore();
 
   // border (pixel aesthetic)
   outCtx.strokeStyle = '#ffffff'; outCtx.lineWidth = 4; outCtx.strokeRect(8,8,800-16,600-16);
 
-  // download
   out.toBlob((blob) => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -536,26 +595,22 @@ async function captureAndDownload(){
     URL.revokeObjectURL(a.href);
   }, 'image/png');
 
-  // small flash on preview canvas (short)
+  // small flash for feedback
   camECTX.fillStyle = 'rgba(255,255,255,0.06)';
   camECTX.fillRect(0,0,800,600);
   setTimeout(()=> camECTX.clearRect(0,0,800,600), 40);
 }
 
-/* open camera modal -> ensure UI -> start camera */
+/* open/close camera modal */
 photoBoothBtn.addEventListener('click', async () => {
   photoboothModal.classList.remove('hidden');
   ensurePhotoUI();
   await startCamera();
 });
-
-/* close camera modal */
 closePhotoBtn.addEventListener('click', () => {
   photoboothModal.classList.add('hidden');
   stopCamera();
 });
-
-/* take photo handler (no main-screen effects after capture) */
 takePhotoBtn.addEventListener('click', async () => {
   takePhotoBtn.disabled = true;
   await captureAndDownload();
@@ -565,15 +620,11 @@ takePhotoBtn.addEventListener('click', async () => {
     takePhotoBtn.disabled = false;
   }, 700);
 });
-
-/* fallback if camera not supported */
 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-  photoBoothBtn.addEventListener('click', () => {
-    alert('Kamera tidak tersedia di perangkat ini.');
-  });
+  photoBoothBtn.addEventListener('click', () => alert('Kamera tidak tersedia di perangkat ini.'));
 }
 
-/* double-click fallback snapshot of main canvas */
+/* double-click snapshot fallback */
 document.getElementById('photo-booth-btn')?.addEventListener('dblclick', () => {
   canvas.toBlob(b => {
     const a = document.createElement('a');
@@ -584,6 +635,8 @@ document.getElementById('photo-booth-btn')?.addEventListener('dblclick', () => {
   });
 });
 
-/* helper wrappers used above */
+/* helper wrappers */
 function spawnConfettiBurst(x,count=60){ for (let i=0;i<count;i++) confetti.push(new Confetto(x + rand(-20,20), rand(460,540))); }
 function spawnFirework(x){ fw_launchers.push(new FireworkLauncher(x ?? rand(80,720))); }
+
+/* EOF */
