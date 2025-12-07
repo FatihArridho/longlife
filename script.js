@@ -1,5 +1,9 @@
 /* ========================
-   script.js (capture clean: no sprinkle in photobooth capture)
+   script.js (final + walker animation)
+   - photobooth capture clean (no sprinkle)
+   - smiley + footer on main canvas
+   - face detection in preview (if available)
+   - walker animation: people walking right -> left, repeating
    ======================== */
 
 /* ---------- ELEMENTS ---------- */
@@ -73,6 +77,99 @@ const cakeData = [
 ];
 
 let lightBlink = 0;
+
+/* ---------- WALKER (people walking right->left) ---------- */
+/*
+  Implementation:
+  - walkers[] contains multiple walker objects { x, y, speed, frameTimer, frameIndex, scale }
+  - drawWalker draws a small pixel-person using rectangles; two leg frames alternate
+  - updateWalkers moves them left; when off-left, jump to right (loop)
+*/
+const walkers = [];
+const WALKER_COUNT = 4;
+
+function createWalker(startX, y, speed, scale=1.0) {
+  return {
+    x: startX,
+    y,
+    speed,
+    scale,
+    frameTimer: 0,
+    frameIndex: 0 // 0 or 1 for two-step walking
+  };
+}
+
+// initialize walkers: spread horizontally starting off-right
+function initWalkers() {
+  walkers.length = 0;
+  const baseY = 440; // vertical position under cake
+  for (let i = 0; i < WALKER_COUNT; i++) {
+    const gap = 140;
+    const startX = 900 + i * gap + rand(0, 80); // start off-canvas to the right
+    const speed = rand(0.6, 1.6); // pixels per frame
+    const scale = 2; // pixel scale for walker (bigger = blockier)
+    walkers.push(createWalker(startX, baseY, speed, scale));
+  }
+}
+initWalkers();
+
+// draws a pixel-person at logical coordinates (x,y) using ctx; scale is multiplier for pixel blocks
+// frameIndex toggles leg positions
+function drawWalker(ctx, x, y, scale, frameIndex) {
+  // simple pixel person composition (head, body, arms, legs)
+  // coordinate system: x,y is top-left of a small 8x8 pixel person before scaling
+  // we'll design a 6x8 pixel canvas for the person
+  const px = scale;
+  // head (2x2)
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(x + 2*px, y + 0*px, 2*px, 2*px);
+  // body (2x3)
+  ctx.fillRect(x + 2*px, y + 2*px, 2*px, 3*px);
+  // arms (left + right)
+  ctx.fillRect(x + 1*px, y + 2*px, 1*px, 2*px);
+  ctx.fillRect(x + 4*px, y + 2*px, 1*px, 2*px);
+  // legs - two frames for walking
+  if (frameIndex % 2 === 0) {
+    // frame A: left forward, right back
+    ctx.fillRect(x + 2*px, y + 5*px, 1*px, 2*px); // left leg
+    ctx.fillRect(x + 3*px, y + 5*px, 1*px, 2*px); // right leg (slightly back same)
+  } else {
+    // frame B: left back, right forward (shift a bit horizontally to simulate step)
+    ctx.fillRect(x + 1*px, y + 5*px, 1*px, 2*px); // left leg back-shift
+    ctx.fillRect(x + 4*px, y + 5*px, 1*px, 2*px); // right leg forward-shift
+  }
+  // optional small eye pixel to add character
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(x + 2*px, y + 1*px, 1*px, 1*px);
+}
+
+// Update & draw walkers each frame
+function updateAndDrawWalkers() {
+  for (const w of walkers) {
+    // update position
+    w.x -= w.speed;
+    // frame timer tick
+    w.frameTimer++;
+    if (w.frameTimer > (12 - Math.floor(w.speed*4))) { // faster walkers toggle faster
+      w.frameTimer = 0;
+      w.frameIndex = (w.frameIndex + 1) % 2;
+    }
+    // when off left side, reset to right side (loop)
+    if (w.x < -40) {
+      // place off-right with small random offset
+      w.x = 820 + rand(0, 240);
+      // randomize speed a bit
+      w.speed = rand(0.6, 1.6);
+      w.frameIndex = 0;
+    }
+    // draw walker - use integer positions for crisp pixel rendering
+    const drawX = Math.round(w.x);
+    const drawY = Math.round(w.y);
+    drawWalker(ctx, drawX, drawY, Math.round(w.scale * 2), w.frameIndex);
+  }
+}
+
+/* ---------- MAIN DRAW LOOP ---------- */
 function drawScene(){
   ctx.clearRect(0,0,800,600);
   // background
@@ -81,7 +178,7 @@ function drawScene(){
   // banner text (pixel-like)
   ctx.fillStyle = '#fff';
   ctx.font = '18px monospace';
-  ctx.fillText('HAPPY BIRTHDAY FATIH!', 280, 80);
+  ctx.fillText('HAPPY BIRTHDAY!', 280, 80);
 
   // cake sprite
   drawPixelSprite(cakeData, 360, 240, 12);
@@ -109,6 +206,10 @@ function drawScene(){
   if (lightBlink % 40 < 20) {
     ctx.fillStyle = '#ff0'; ctx.fillRect(100,100,8,8); ctx.fillRect(692,100,8,8);
   }
+
+  // walkers (under the cake area)
+  updateAndDrawWalkers();
+
   lightBlink++;
   requestAnimationFrame(drawScene);
 }
@@ -181,6 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
   startScreen.classList.add('hidden');
   mainScene.classList.remove('hidden');
   resizeCanvas();
+  initWalkers(); // ensure walkers initialized/responsive
   drawScene();
   drawEffects();
 });
@@ -203,7 +305,7 @@ kirimBtn.addEventListener('click', () => {
 /* crt toggle */
 crtToggle.addEventListener('click', () => { isCrtOn = !isCrtOn; document.body.classList.toggle('crt-on', isCrtOn); });
 
-/* ---------- PHOTO BOOTH: camera + pixelate + switch camera + face detection ---------- */
+/* ---------- PHOTO BOOTH: camera + pixelate + switch camera + face detection (unchanged) ---------- */
 
 let mediaStream = null;
 let facingMode = 'user'; // 'user' or 'environment'
