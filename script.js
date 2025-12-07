@@ -7,11 +7,13 @@ const photoBoothBtn = document.getElementById('photo-booth-btn');
 const crtToggle = document.getElementById('crt-toggle');
 const downloadBtn = document.getElementById('download-btn');
 const letterModal = document.getElementById('letter-modal');
-const saveBtn = document.getElementById('save-btn');
-const closeModalBtn = document.getElementById('close-modal-btn');
+const kirimBtn = document.getElementById('kirim-btn'); // Diubah dari saveBtn
 const birthdayMessage = document.getElementById('birthday-message');
 const canvas = document.getElementById('pixel-canvas');
 const ctx = canvas.getContext('2d');
+
+// Debug: Pastikan canvas siap
+console.log('Canvas initialized:', canvas);
 
 // Pixel Art Setup: Palet Warna Terbatas (Maks 6: Merah, Biru, Kuning, Hijau, Ungu, Oranye)
 const palette = ['#ff0000', '#0000ff', '#ffff00', '#00ff00', '#800080', '#ffa500'];
@@ -208,14 +210,12 @@ openLetterBtn.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') e.preventDefault(), openLetterBtn.click();
 });
 
-// Save Message
-saveBtn.addEventListener('click', () => {
+// Kirim Message ke WhatsApp
+kirimBtn.addEventListener('click', () => {
     const msg = birthdayMessage.value.trim();
     if (msg) {
-        // Tampil Pesan di Layar (Teks Pixel Besar)
-        ctx.fillStyle = '#ffffff';
-        ctx.font = '12px Press Start 2P';
-        ctx.fillText(msg.toUpperCase(), 50, 550); // White-on-black
+        // Redirect ke WhatsApp
+        window.location.href = `https://wa.me/6281511118515?text=${encodeURIComponent(msg)}`;
         messageSaved = true;
         downloadBtn.classList.remove('hidden');
         letterModal.classList.add('hidden');
@@ -225,18 +225,12 @@ saveBtn.addEventListener('click', () => {
             ctx.fillStyle = palette[Math.floor(Math.random() * palette.length)];
             ctx.fillRect(Math.random() * 800, Math.random() * 600, 4, 4);
         }
+    } else {
+        alert('Pesan tidak boleh kosong!'); // Alert sederhana jika kosong
     }
 });
-saveBtn.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') e.preventDefault(), saveBtn.click();
-});
-
-// Close Modal
-closeModalBtn.addEventListener('click', () => {
-    letterModal.classList.add('hidden');
-});
-closeModalBtn.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') e.preventDefault(), closeModalBtn.click();
+kirimBtn.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') e.preventDefault(), kirimBtn.click();
 });
 
 // CRT Toggle
