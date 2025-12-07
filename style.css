@@ -1,254 +1,136 @@
-/* Global Styles */
-* {
+/* Global: Latar Hitam Pekat, Font Pixel */
+body {
     margin: 0;
     padding: 0;
-    box-sizing: border-box;
+    background: #000000; /* Pure black */
+    color: #ffffff; /* Pure white untuk teks/UI */
+    font-family: 'Press Start 2P', monospace; /* Font pixel */
+    font-size: 8px; /* Huruf kecil, scalable */
+    overflow: hidden;
+    image-rendering: pixelated; /* Pixel art rendering */
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
 }
 
-body {
-    font-family: 'Roboto', sans-serif;
-    background: linear-gradient(135deg, #ff6b6b, #4ecdc4, #45b7d1);
-    background-size: 400% 400%;
-    animation: gradientShift 10s ease infinite;
-    color: #333;
-    overflow-x: hidden;
-    transition: background 0.5s;
+/* Screen Containers */
+.screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
 }
 
-@keyframes gradientShift {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
+.hidden {
+    display: none;
 }
 
-.app.dark {
-    background: linear-gradient(135deg, #000, #333, #666);
-    color: #fff;
+/* Tombol Pixel: Putih, Border Pixel, Efek Hover Invert */
+.pixel-btn {
+    background: #ffffff; /* Putih */
+    color: #000000; /* Hitam untuk kontras */
+    border: 2px solid #ffffff; /* Border putih */
+    padding: 10px 20px;
+    font-size: 8px;
+    text-transform: uppercase;
+    cursor: pointer;
+    image-rendering: pixelated;
+    transition: none; /* No smooth transitions, pixel style */
 }
 
-.app.light {
-    background: linear-gradient(135deg, #ff6b6b, #4ecdc4, #45b7d1);
-    color: #333;
+.pixel-btn:hover, .pixel-btn:focus {
+    background: #000000; /* Invert: Hitam */
+    color: #ffffff; /* Putih */
+    outline: 2px solid #ffffff;
 }
 
-/* Particles Canvas */
-#particles-canvas {
+.pixel-btn.small {
+    padding: 5px 10px;
+    font-size: 6px;
+}
+
+/* Canvas: Pixel Art Scene */
+#pixel-canvas {
+    border: 2px solid #ffffff; /* Border putih */
+    image-rendering: pixelated;
+    max-width: 100%;
+    max-height: 100%;
+}
+
+/* Modal Surat: Kartu Pixel Slide-In */
+.modal {
     position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.9); /* Semi-transparent black */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+}
+
+.pixel-card {
+    background: #000000; /* Hitam */
+    border: 4px solid #ffffff; /* Border putih */
+    padding: 20px;
+    max-width: 400px;
+    text-align: center;
+    image-rendering: pixelated;
+    animation: slideIn 0.5s ease-out; /* 8-bit slide-in */
+}
+
+@keyframes slideIn {
+    from { transform: translateY(-100px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.pixel-card h2 {
+    font-size: 10px;
+    margin-bottom: 20px;
+}
+
+.pixel-textarea {
+    width: 100%;
+    height: 100px;
+    background: #000000; /* Hitam */
+    color: #ffffff; /* Putih */
+    border: 2px solid #ffffff; /* Border putih */
+    font-family: 'Press Start 2P', monospace;
+    font-size: 6px;
+    padding: 10px;
+    resize: none;
+    image-rendering: pixelated;
+}
+
+/* CRT/Scanline Effect (Toggleable) */
+.crt-on::before {
+    content: '';
+    position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    z-index: -1;
+    background: repeating-linear-gradient(
+        0deg,
+        rgba(255, 255, 255, 0.03) 0px,
+        rgba(255, 255, 255, 0.03) 2px,
+        transparent 2px,
+        transparent 4px
+    );
+    pointer-events: none;
+    z-index: 5;
 }
 
-/* Header */
-.header {
-    text-align: center;
-    margin-bottom: 40px;
-    padding-top: 20px;
-}
-
-.header h1 {
-    font-family: 'Dancing Script', cursive;
-    font-size: 4rem;
-    text-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
-    animation: glow 2s ease-in-out infinite alternate;
-}
-
-@keyframes glow {
-    from { text-shadow: 0 0 20px rgba(255, 255, 255, 0.8); }
-    to { text-shadow: 0 0 30px rgba(255, 255, 255, 1); }
-}
-
-.theme-toggle {
-    margin-top: 10px;
-    padding: 10px 20px;
-    background: #ff6b6b;
-    color: white;
-    border: none;
-    border-radius: 50px;
-    cursor: pointer;
-    transition: transform 0.3s, background 0.3s;
-}
-
-.theme-toggle:hover {
-    transform: scale(1.1);
-    background: #e55a5a;
-}
-
-/* Countdown */
-.countdown {
-    text-align: center;
-    margin-bottom: 40px;
-    animation: fadeIn 1s ease-in;
-}
-
-.countdown h2 {
-    font-size: 2.5rem;
-    margin-bottom: 20px;
-}
-
-.timer {
-    display: flex;
-    justify-content: center;
-    gap: 20px;
-    font-size: 2rem;
-    font-weight: bold;
-}
-
-.timer div {
-    background: rgba(255, 255, 255, 0.8);
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    animation: pulse 1s infinite;
-}
-
-@keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-    100% { transform: scale(1); }
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* Gallery */
-.gallery {
-    margin-bottom: 40px;
-    animation: fadeIn 1s ease-in 0.5s both;
-}
-
-.gallery h2 {
-    text-align: center;
-    font-size: 2.5rem;
-    margin-bottom: 20px;
-}
-
-.slider {
-    position: relative;
-    max-width: 800px;
-    margin: 0 auto;
-    overflow: hidden;
-}
-
-.slides {
-    display: flex;
-    transition: transform 0.5s ease;
-}
-
-.slides img {
-    width: 100%;
-    height: 400px;
-    object-fit: cover;
-    border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    transition: transform 0.3s;
-}
-
-.slides img:hover {
-    transform: scale(1.05);
-}
-
-.prev, .next {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    background: rgba(0, 0, 0, 0.5);
-    color: white;
-    border: none;
-    padding: 10px;
-    cursor: pointer;
-    border-radius: 50%;
-    font-size: 1.5rem;
-    transition: background 0.3s;
-}
-
-.prev { left: 10px; }
-.next { right: 10px; }
-
-.prev:hover, .next:hover {
-    background: rgba(0, 0, 0, 0.8);
-}
-
-/* Messages */
-.messages {
-    text-align: center;
-    margin-bottom: 40px;
-    animation: fadeIn 1s ease-in 1s both;
-}
-
-.messages h2 {
-    font-size: 2.5rem;
-    margin-bottom: 20px;
-}
-
-.message-list {
-    margin-bottom: 20px;
-}
-
-.message {
-    background: rgba(255, 255, 255, 0.8);
-    padding: 10px;
-    margin: 10px auto;
-    border-radius: 10px;
-    max-width: 600px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    animation: slideIn 0.5s ease;
-}
-
-@keyframes slideIn {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-.message-input {
-    width: 80%;
-    padding: 10px;
-    margin: 10px;
-    border: 2px solid #ff6b6b;
-    border-radius: 50px;
-    font-size: 1rem;
-    transition: border-color 0.3s;
-}
-
-.message-input:focus {
-    border-color: #e55a5a;
-    outline: none;
-}
-
-.add-btn {
-    padding: 10px 20px;
-    background: #ff6b6b;
-    color: white;
-    border: none;
-    border-radius: 50px;
-    cursor: pointer;
-    transition: transform 0.3s, background 0.3s;
-}
-
-.add-btn:hover {
-    transform: scale(1.1);
-    background: #e55a5a;
-}
-
-/* Volume Control */
-.volume-control {
-    text-align: center;
-    margin-top: 20px;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-    .header h1 {
-        font-size: 2.5rem;
-    }
-    .timer {
-        flex-direction: column;
-    }
-    .slides img {
+/* Responsive: Integer Scaling untuk Canvas */
+@media (max-width: 800px) {
+    #pixel-canvas {
+        width: 400px;
         height: 300px;
     }
 }

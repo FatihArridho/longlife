@@ -3,53 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Happy Birthday!</title>
-    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <title>8-Bit Birthday</title>
+    <!-- Font Pixel: Press Start 2P dari Google Fonts (fallback ke monospace jika gagal) -->
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="app" id="app">
-        <canvas id="particles-canvas"></canvas>
-        <header class="header">
-            <h1>🎉 Happy Birthday! 🎉</h1>
-            <button id="theme-toggle" class="theme-toggle">🌙 Dark Mode</button>
-        </header>
-        <section class="countdown">
-            <h2>Countdown to Your Special Day</h2>
-            <div class="timer">
-                <div id="days">0 Days</div>
-                <div id="hours">0 Hours</div>
-                <div id="minutes">0 Minutes</div>
-                <div id="seconds">0 Seconds</div>
-            </div>
-        </section>
-        <section class="gallery">
-            <h2>Memorable Moments</h2>
-            <div class="slider">
-                <div class="slides" id="slides">
-                    <img src="https://via.placeholder.com/800x600/FF6B6B/FFFFFF?text=Birthday+Photo+1" alt="Photo 1">
-                    <img src="https://via.placeholder.com/800x600/4ECDC4/FFFFFF?text=Birthday+Photo+2" alt="Photo 2">
-                    <img src="https://via.placeholder.com/800x600/45B7D1/FFFFFF?text=Birthday+Photo+3" alt="Photo 3">
-                </div>
-                <button class="prev" id="prev">❮</button>
-                <button class="next" id="next">❯</button>
-            </div>
-        </section>
-        <section class="messages">
-            <h2>Birthday Wishes</h2>
-            <div class="message-list" id="message-list"></div>
-            <input type="text" id="message-input" placeholder="Write a birthday wish..." class="message-input">
-            <button id="add-btn" class="add-btn">Add Wish</button>
-        </section>
-        <audio id="bg-music" loop>
-            <source src="https://www.soundjay.com/misc/sounds/bell-ringing-05.wav" type="audio/wav"> <!-- Ganti dengan URL musik ulang tahun Anda -->
-        </audio>
-        <div class="volume-control">
-            <label for="volume">Volume:</label>
-            <input type="range" id="volume" min="0" max="1" step="0.1" value="0.5">
+    <!-- Tampilan Awal: Layar Hitam dengan Tombol MULAI -->
+    <div id="start-screen" class="screen">
+        <button id="start-btn" class="pixel-btn" tabindex="0">MULAI</button>
+    </div>
+
+    <!-- Scene Utama: Pixel Art Scene -->
+    <div id="main-scene" class="screen hidden">
+        <canvas id="pixel-canvas" width="800" height="600"></canvas>
+        <button id="open-letter-btn" class="pixel-btn small" tabindex="0">BUKA SURAT</button>
+        <button id="photo-booth-btn" class="pixel-btn small" tabindex="0">PHOTO BOOTH</button>
+        <button id="crt-toggle" class="pixel-btn small" tabindex="0">CRT ON/OFF</button>
+        <button id="download-btn" class="pixel-btn small hidden" tabindex="0">DOWNLOAD</button>
+    </div>
+
+    <!-- Modal Surat -->
+    <div id="letter-modal" class="modal hidden">
+        <div class="pixel-card">
+            <h2>HAPPY BIRTHDAY!</h2>
+            <textarea id="birthday-message" placeholder="{{birthday_message}} - Tulis pesan ulang tahunmu di sini!" class="pixel-textarea"></textarea>
+            <button id="save-btn" class="pixel-btn" tabindex="0">SIMPAN</button>
+            <button id="close-modal-btn" class="pixel-btn" tabindex="0">TUTUP</button>
         </div>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.mjs"></script>
+
+    <!-- Audio Placeholder -->
+    <audio id="bg-music" preload="auto">
+        <source src="{{birthday_music}}" type="audio/mpeg"> <!-- Ganti dengan URL file musik ulang tahun Anda, mis. 'birthday.mp3' -->
+    </audio>
+    <audio id="confetti-sound" preload="auto">
+        <source src="{{confetti_sound}}" type="audio/wav"> <!-- Opsional: Ganti dengan URL suara konfeti, mis. 'pop.wav' -->
+    </audio>
+
     <script src="script.js"></script>
 </body>
 </html>
