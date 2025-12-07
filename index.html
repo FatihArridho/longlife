@@ -1,42 +1,62 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>8-Bit Birthday</title>
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>8-Bit Birthday — Photo Booth</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-    <div id="start-screen" class="screen">
-        <button id="start-btn" class="pixel-btn" tabindex="0">MULAI</button>
+  <!-- START SCREEN (optional, auto-hidden on load) -->
+  <div id="start-screen" class="screen">
+    <button id="start-btn" class="pixel-btn">MULAI</button>
+  </div>
+
+  <!-- MAIN SCENE -->
+  <div id="main-scene" class="screen hidden">
+    <div id="canvas-wrap">
+      <canvas id="pixel-canvas" width="800" height="600"></canvas>
+      <canvas id="effect-canvas" width="800" height="600"></canvas>
     </div>
 
-    <div id="main-scene" class="screen hidden">
-        <div id="canvas-wrap">
-            <canvas id="pixel-canvas" width="800" height="600"></canvas>
-            <canvas id="effect-canvas" width="800" height="600"></canvas>
-        </div>
-
-        <div id="controls">
-            <button id="open-letter-btn" class="pixel-btn small" tabindex="0">BUKA SURAT</button>
-            <button id="photo-booth-btn" class="pixel-btn small" tabindex="0">PHOTO BOOTH</button>
-            <button id="crt-toggle" class="pixel-btn small" tabindex="0">CRT ON/OFF</button>
-            <button id="download-btn" class="pixel-btn small hidden" tabindex="0">DOWNLOAD</button>
-        </div>
+    <div id="controls">
+      <button id="open-letter-btn" class="pixel-btn small">BUKA SURAT</button>
+      <button id="photo-booth-btn" class="pixel-btn small">PHOTO BOOTH</button>
+      <button id="crt-toggle" class="pixel-btn small">CRT ON/OFF</button>
+      <button id="download-btn" class="pixel-btn small hidden">DOWNLOAD</button>
     </div>
+  </div>
 
-    <div id="letter-modal" class="modal hidden" role="dialog" aria-modal="true">
-        <div class="pixel-card">
-            <h2>HAPPY BIRTHDAY!</h2>
-            <textarea id="birthday-message" placeholder="Tulis pesan ulang tahunmu di sini!" class="pixel-textarea" maxlength="300"></textarea>
-            <div class="modal-actions">
-                <button id="kirim-btn" class="pixel-btn" tabindex="0">KIRIM</button>
-                <button id="close-letter-btn" class="pixel-btn" tabindex="0">TUTUP</button>
-            </div>
-        </div>
+  <!-- LETTER / MESSAGE MODAL -->
+  <div id="letter-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="pixel-card">
+      <h2>HAPPY BIRTHDAY!</h2>
+      <textarea id="birthday-message" placeholder="Tulis pesan ulang tahunmu di sini!" class="pixel-textarea" maxlength="300"></textarea>
+      <div class="modal-actions">
+        <button id="kirim-btn" class="pixel-btn">KIRIM</button>
+        <button id="close-letter-btn" class="pixel-btn">TUTUP</button>
+      </div>
     </div>
+  </div>
 
-    <script src="script.js"></script>
+  <!-- PHOTO BOOTH MODAL -->
+  <div id="photobooth-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="pixel-card" style="max-width:460px; width:94%;">
+      <h2>PHOTO BOOTH</h2>
+
+      <div id="video-wrap">
+        <video id="camera-video" autoplay playsinline></video>
+        <canvas id="camera-effect-canvas"></canvas>
+      </div>
+
+      <div class="modal-actions" style="margin-top:12px;">
+        <button id="take-photo-btn" class="pixel-btn">AMBIL FOTO</button>
+        <button id="close-photo-btn" class="pixel-btn">BATAL</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
 </body>
 </html>
