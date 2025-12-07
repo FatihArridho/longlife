@@ -668,7 +668,7 @@ function drawScene(){
   updateAndDrawSpotlight();
   ctx.fillStyle = '#fff';
   ctx.font = '18px monospace';
-  ctx.fillText('HAPPY BIRTHDAY!', 280, 80);
+  ctx.fillText('HAPPY BIRTHDAY FATIH!', 280, 80);
 
   // dancers (top)
   updateAndDrawDancers();
