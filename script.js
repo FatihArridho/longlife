@@ -1,14 +1,12 @@
 /* ========================
-   script.js (complete)
-   - clean photobooth capture (no sparkle/confetti in downloaded photo)
+   script.js (with clouds, NPC cats/dogs, header spotlight)
+   - clean photobooth capture (no sparkles in downloaded photo)
    - pixelate option, camera switch, face detection preview
    - main canvas: cake, smiley, "made with fatih"
    - effects: fireworks, confetti, snow (visual only)
    - walkers (right->left) under cake
-   - dancers (top-left + top-right) — enhanced:
-       * multiple dancers
-       * different shirt colors
-       * 4-frame dance + occasional jump
+   - dancers (top-left + top-right)
+   - NEW: clouds background, NPC cat/dog, header spotlight
    ======================== */
 
 /* ---------- ELEMENTS ---------- */
@@ -32,6 +30,7 @@ const cameraEffectCanvas = document.getElementById('camera-effect-canvas');
 const takePhotoBtn = document.getElementById('take-photo-btn');
 const closePhotoBtn = document.getElementById('close-photo-btn');
 
+const canvasWrap = document.getElementById('canvas-wrap');
 const canvas = document.getElementById('pixel-canvas');
 const ctx = canvas.getContext('2d');
 
@@ -45,7 +44,7 @@ function rand(a,b){ return Math.random()*(b-a)+a; }
 
 /* ---------- RESIZE FIX ---------- */
 function resizeCanvas(){
-  const wrap = document.getElementById('canvas-wrap');
+  const wrap = canvasWrap;
   const maxW = Math.min(window.innerWidth * 0.95, 800);
   const maxH = Math.min(window.innerHeight * 0.95, 600);
   const scale = Math.min(maxW / 800, maxH / 600);
@@ -83,120 +82,123 @@ const cakeData = [
 
 let lightBlink = 0;
 
-/* ---------- DANCERS (top left + right) ---------- */
-/*
-  dancers[] items:
-  { x, y, originX, originY, frame, timer, color, flip, jumpTimer }
-  - frame: 0..3 (4-frame dance)
-  - flip: if true, mirror horizontally (for right-side dancer)
-  - jumpTimer: occasional small jump
-*/
-const dancers = [];
+/* ---------- CLOUDS (background, behind header) ---------- */
+const clouds = [];
+const CLOUD_COUNT = 4;
+function initClouds(){
+  clouds.length = 0;
+  for (let i=0;i<CLOUD_COUNT;i++){
+    clouds.push({
+      x: rand(-200, 900),
+      y: rand(20, 110),
+      speed: rand(0.2, 0.6),
+      scale: Math.floor(rand(1,2))
+    });
+  }
+}
+initClouds();
 
-// create several dancers: left cluster and right cluster with color variety
+// draw simple pixel cloud using rectangles (soft 8-bit)
+function drawCloud(ctx, x, y, s){
+  const px = 6 * s;
+  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  // cloud shape (3 blobs)
+  ctx.fillRect(x, y+px, px*4, px*2);
+  ctx.fillRect(x - px*1, y, px*3, px*2);
+  ctx.fillRect(x + px*3, y, px*3, px*2);
+}
+
+function updateAndDrawClouds(){
+  for (const c of clouds){
+    c.x += c.speed;
+    if (c.x > 900) c.x = -240 - rand(0,200);
+    // draw behind header: subtle (lower opacity already)
+    drawCloud(ctx, Math.round(c.x), Math.round(c.y), c.scale);
+  }
+}
+
+/* ---------- SPOTLIGHT (header lampu panggung) ---------- */
+const spotlight = {
+  x: 0, y: 50, // center y near header
+  dir: 1,
+  minX: 80,
+  maxX: 720,
+  speed: 1.0,
+  hue: 200,
+  hueDir: 1
+};
+
+function updateAndDrawSpotlight(){
+  // move
+  spotlight.x += spotlight.dir * spotlight.speed;
+  if (spotlight.x < spotlight.minX || spotlight.x > spotlight.maxX) spotlight.dir *= -1;
+  // change hue slowly
+  spotlight.hue += spotlight.hueDir * 0.2;
+  if (spotlight.hue < 160 || spotlight.hue > 300) spotlight.hueDir *= -1;
+
+  // draw radial-ish spotlight using translucent ellipse
+  const grd = ctx.createRadialGradient(spotlight.x, spotlight.y, 10, spotlight.x, spotlight.y, 220);
+  const color = `hsla(${Math.floor(spotlight.hue)}, 90%, 60%, `;
+  grd.addColorStop(0, color + '0.28)');
+  grd.addColorStop(0.25, color + '0.12)');
+  grd.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = grd;
+  ctx.beginPath();
+  ctx.ellipse(spotlight.x, spotlight.y+40, 220, 60, 0, 0, Math.PI*2);
+  ctx.fill();
+  // small bright center
+  ctx.fillStyle = `hsla(${Math.floor(spotlight.hue)}, 100%, 75%, 0.12)`;
+  ctx.beginPath();
+  ctx.arc(spotlight.x, spotlight.y+30, 36, 0, Math.PI*2);
+  ctx.fill();
+}
+
+/* ---------- DANCERS (top left + right) ---------- */
+const dancers = [];
 function initDancers() {
   dancers.length = 0;
   const leftX = 120, rightX = 630;
-  const y = 62; // baseline near header
-  const colors = ['#ff6b6b', '#ffd166', '#6bcB77'.toLowerCase(), '#7ec8ff'.toLowerCase(), '#d291ff'];
-  // left group: 2 dancers
+  const y = 62;
+  const colors = ['#ff6b6b','#ffd166','#6bcB77','#7ec8ff','#d291ff'];
   for (let i=0;i<2;i++){
-    dancers.push({
-      x: leftX + i*28,
-      y: y + (i%2===0?0:2),
-      originX: leftX + i*28,
-      originY: y + (i%2===0?0:2),
-      frame: Math.floor(Math.random()*4),
-      timer: Math.floor(Math.random()*10),
-      color: colors[i % colors.length],
-      flip: false,
-      jumpTimer: 0
-    });
+    dancers.push({ x: leftX + i*28, y: y + (i%2===0?0:2), originX: leftX + i*28, originY: y + (i%2===0?0:2), frame: Math.floor(Math.random()*4), timer: Math.floor(Math.random()*10), color: colors[i % colors.length], flip:false, jumpTimer:0 });
   }
-  // right group: 2 dancers (mirrored)
   for (let i=0;i<2;i++){
-    dancers.push({
-      x: rightX + i*28,
-      y: y + (i%2===0?0:2),
-      originX: rightX + i*28,
-      originY: y + (i%2===0?0:2),
-      frame: Math.floor(Math.random()*4),
-      timer: Math.floor(Math.random()*10),
-      color: colors[(i+2) % colors.length],
-      flip: true,
-      jumpTimer: 0
-    });
+    dancers.push({ x: rightX + i*28, y: y + (i%2===0?0:2), originX: rightX + i*28, originY: y + (i%2===0?0:2), frame: Math.floor(Math.random()*4), timer: Math.floor(Math.random()*10), color: colors[(i+2) % colors.length], flip:true, jumpTimer:0 });
   }
 }
 initDancers();
 
-// draw single dancer at logical coordinates using small pixel person with shirt color and 4 frames + jump offset
 function drawDancer(ctx, x, y, color, frame, flip=false, jump=0) {
-  // base scale — dancer size small
   const px = 2;
-  // apply jump vertical offset
-  const jy = -Math.max(0, jump); // negative means up
-  // head
+  const jy = -Math.max(0, jump);
   ctx.fillStyle = '#ffffff';
-  const headX = x + (flip ? px*2 : px*2);
-  ctx.fillRect(headX, y + 0*px + jy, 2*px, 2*px);
-  // shirt/body (color)
+  ctx.fillRect(x + 2*px, y + 0*px + jy, 2*px, 2*px); // head
   ctx.fillStyle = color;
-  ctx.fillRect(x + 2*px, y + 2*px + jy, 2*px, 3*px);
-  // arms depend on frame
+  ctx.fillRect(x + 2*px, y + 2*px + jy, 2*px, 3*px); // body
   ctx.fillStyle = color;
-  if (frame === 0) {
-    // arms down
-    ctx.fillRect(x + px*1, y + 3*px + jy, px, 2*px);
-    ctx.fillRect(x + px*4, y + 3*px + jy, px, 2*px);
-  } else if (frame === 1) {
-    // arms up
-    ctx.fillRect(x + px*1, y + 1*px + jy, px, 2*px);
-    ctx.fillRect(x + px*4, y + 1*px + jy, px, 2*px);
-  } else if (frame === 2) {
-    // one arm up, one down
-    ctx.fillRect(x + px*1, y + 3*px + jy, px, 2*px);
-    ctx.fillRect(x + px*4, y + 1*px + jy, px, 2*px);
-  } else {
-    // opposite
-    ctx.fillRect(x + px*1, y + 1*px + jy, px, 2*px);
-    ctx.fillRect(x + px*4, y + 3*px + jy, px, 2*px);
-  }
-  // legs: simple stepping by frame
+  if (frame === 0) { ctx.fillRect(x + px*1, y + 3*px + jy, px, 2*px); ctx.fillRect(x + px*4, y + 3*px + jy, px, 2*px); }
+  else if (frame === 1) { ctx.fillRect(x + px*1, y + 1*px + jy, px, 2*px); ctx.fillRect(x + px*4, y + 1*px + jy, px, 2*px); }
+  else if (frame === 2) { ctx.fillRect(x + px*1, y + 3*px + jy, px, 2*px); ctx.fillRect(x + px*4, y + 1*px + jy, px, 2*px); }
+  else { ctx.fillRect(x + px*1, y + 1*px + jy, px, 2*px); ctx.fillRect(x + px*4, y + 3*px + jy, px, 2*px); }
   ctx.fillStyle = '#ffffff';
-  if (frame % 2 === 0) {
-    ctx.fillRect(x + 2*px, y + 5*px + jy, px, 2*px);
-    ctx.fillRect(x + 3*px, y + 5*px + jy, px, 2*px);
-  } else {
-    ctx.fillRect(x + 1*px, y + 5*px + jy, px, 2*px);
-    ctx.fillRect(x + 4*px, y + 5*px + jy, px, 2*px);
-  }
-  // small eye
-  ctx.fillStyle = '#000000';
-  ctx.fillRect(x + 2*px, y + 1*px + jy, 1*px, 1*px);
+  if (frame % 2 === 0) { ctx.fillRect(x + 2*px, y + 5*px + jy, px, 2*px); ctx.fillRect(x + 3*px, y + 5*px + jy, px, 2*px); }
+  else { ctx.fillRect(x + 1*px, y + 5*px + jy, px, 2*px); ctx.fillRect(x + 4*px, y + 5*px + jy, px, 2*px); }
+  ctx.fillStyle = '#000000'; ctx.fillRect(x + 2*px, y + 1*px + jy, 1*px, 1*px);
 }
 
-// update & draw all dancers (frame stepping + occasional jump)
 function updateAndDrawDancers() {
   for (const d of dancers) {
     d.timer++;
-    // step frames quicker if timer big
     if (d.timer > 8) {
       d.timer = 0;
-      d.frame = (d.frame + 1) % 4; // 4-frame dance
-      // occasional jump: 6% chance when frame resets
-      if (Math.random() < 0.06 && d.jumpTimer <= 0) {
-        d.jumpTimer = 8 + Math.floor(Math.random()*12); // duration of jump in ticks
-      }
+      d.frame = (d.frame + 1) % 4;
+      if (Math.random() < 0.06 && d.jumpTimer <= 0) d.jumpTimer = 8 + Math.floor(Math.random()*12);
     }
-    // manage jump timer countdown
     let jumpOffset = 0;
     if (d.jumpTimer > 0) {
-      // create a small hop curve: up then down
-      const half = Math.floor(d.jumpTimer / 2);
       const progress = d.jumpTimer;
-      // smoother small hop using simple mapping
-      jumpOffset = Math.sin((progress / (half + 1)) * Math.PI) * 6; // amplitude ~6px
+      jumpOffset = Math.sin((progress/ (8 + 6)) * Math.PI) * 6;
       d.jumpTimer--;
     }
     drawDancer(ctx, Math.round(d.x), Math.round(d.y - jumpOffset), d.color, d.frame, d.flip, jumpOffset);
@@ -206,9 +208,7 @@ function updateAndDrawDancers() {
 /* ---------- WALKER (people walking under cake) ---------- */
 const walkers = [];
 const WALKER_COUNT = 4;
-function createWalker(startX, y, speed, scale=1.0) {
-  return { x: startX, y, speed, scale, frameTimer: 0, frameIndex: 0 };
-}
+function createWalker(startX, y, speed, scale=1.0) { return { x: startX, y, speed, scale, frameTimer: 0, frameIndex: 0 }; }
 function initWalkers() {
   walkers.length = 0;
   const baseY = 440;
@@ -224,24 +224,14 @@ initWalkers();
 
 function drawWalker(ctx, x, y, scale, frameIndex) {
   const px = scale;
-  // head
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(x + 2*px, y + 0*px, 2*px, 2*px);
-  // body
   ctx.fillRect(x + 2*px, y + 2*px, 2*px, 3*px);
-  // arms
   ctx.fillRect(x + 1*px, y + 2*px, 1*px, 2*px);
   ctx.fillRect(x + 4*px, y + 2*px, 1*px, 2*px);
-  // legs
-  if (frameIndex % 2 === 0) {
-    ctx.fillRect(x + 2*px, y + 5*px, 1*px, 2*px);
-    ctx.fillRect(x + 3*px, y + 5*px, 1*px, 2*px);
-  } else {
-    ctx.fillRect(x + 1*px, y + 5*px, 1*px, 2*px);
-    ctx.fillRect(x + 4*px, y + 5*px, 1*px, 2*px);
-  }
-  ctx.fillStyle = '#000000';
-  ctx.fillRect(x + 2*px, y + 1*px, 1*px, 1*px);
+  if (frameIndex % 2 === 0) { ctx.fillRect(x + 2*px, y + 5*px, 1*px, 2*px); ctx.fillRect(x + 3*px, y + 5*px, 1*px, 2*px); }
+  else { ctx.fillRect(x + 1*px, y + 5*px, 1*px, 2*px); ctx.fillRect(x + 4*px, y + 5*px, 1*px, 2*px); }
+  ctx.fillStyle = '#000000'; ctx.fillRect(x + 2*px, y + 1*px, 1*px, 1*px);
 }
 
 function updateAndDrawWalkers() {
@@ -261,24 +251,131 @@ function updateAndDrawWalkers() {
   }
 }
 
+/* ---------- NPC (cats & dogs) - appear, run, sometimes sit & blink ---------- */
+const npcs = [];
+const NPC_TYPES = ['cat','dog'];
+
+function spawnNPC(type='cat') {
+  const yBase = 470; // ground level near walkers
+  const speed = rand(1.4, 3.0);
+  const startX = -60; // left offscreen
+  const npc = {
+    type,
+    x: startX,
+    y: yBase + (type==='cat' ? rand(-6,6) : rand(-4,8)),
+    speed,
+    state: 'running', // 'running' or 'sitting'
+    frame: 0,
+    timer: 0,
+    blinkTimer: Math.floor(rand(60,240))
+  };
+  npcs.push(npc);
+}
+
+// basic pixel sprite for npc; small and simple
+function drawNPC(ctx, n) {
+  const px = 2;
+  const x = Math.round(n.x);
+  const y = Math.round(n.y);
+  // body color: cat gray, dog brown
+  const bodyColor = (n.type === 'cat') ? '#cfcfcf' : '#d4a373';
+  // head
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(x + 1*px, y + 0*px, 3*px, 2*px);
+  // ears for cat
+  if (n.type === 'cat') {
+    ctx.fillRect(x + 1*px, y - 1*px, 1*px, 1*px);
+    ctx.fillRect(x + 3*px, y - 1*px, 1*px, 1*px);
+  }
+  // body
+  ctx.fillStyle = bodyColor;
+  ctx.fillRect(x + 1*px, y + 2*px, 3*px, 2*px);
+  // tail for cat
+  if (n.type === 'cat') {
+    ctx.fillRect(x - 1*px, y + 2*px, 1*px, 1*px);
+  } else {
+    // small tail for dog
+    ctx.fillRect(x + 4*px, y + 2*px, 1*px, 1*px);
+  }
+  // eyes (blink)
+  ctx.fillStyle = '#000';
+  if (n.blinkTimer > 0 && n.blinkTimer % 20 < 3) {
+    // closed (line)
+    ctx.fillRect(x + 1*px, y + 1*px, 1*px, 1*px);
+    ctx.fillRect(x + 3*px, y + 1*px, 1*px, 1*px);
+  } else {
+    ctx.fillRect(x + 1*px, y + 1*px, 1*px, 1*px);
+    ctx.fillRect(x + 3*px, y + 1*px, 1*px, 1*px);
+  }
+}
+
+function updateAndDrawNPCs(){
+  for (let i = npcs.length - 1; i >= 0; i--) {
+    const n = npcs[i];
+    n.timer++;
+    if (n.state === 'running') {
+      n.x += n.speed;
+      // occasionally switch to sitting if in range
+      if (Math.random() < 0.002 && n.x > 120 && n.x < 680) {
+        n.state = 'sitting';
+        n.sitDuration = 80 + Math.floor(rand(0,140));
+      }
+    } else if (n.state === 'sitting') {
+      n.sitDuration--;
+      if (n.sitDuration <= 0) {
+        n.state = 'running';
+      }
+    }
+    // blink timer decrement
+    n.blinkTimer--;
+    if (n.blinkTimer <= 0) n.blinkTimer = Math.floor(rand(60,240));
+
+    // draw depending on state (if sitting, draw slightly different posture)
+    if (n.state === 'sitting') {
+      // draw sitting by moving body lower and not moving x
+      drawNPC(ctx, n);
+    } else {
+      drawNPC(ctx, n);
+    }
+
+    // remove when fully off right
+    if (n.x > 920) {
+      npcs.splice(i,1);
+    }
+  }
+}
+
+// occasional spawner for NPCs
+setInterval(() => {
+  if (Math.random() < 0.25) {
+    const t = NPC_TYPES[Math.floor(Math.random()*NPC_TYPES.length)];
+    spawnNPC(t);
+  }
+}, 1600);
+
 /* ---------- MAIN DRAW LOOP ---------- */
 function drawScene(){
   ctx.clearRect(0,0,800,600);
   // background
   ctx.fillStyle = '#000'; ctx.fillRect(0,0,800,600);
 
-  // banner text
+  // clouds (behind header)
+  updateAndDrawClouds();
+
+  // banner text & spotlight
   ctx.fillStyle = '#fff';
   ctx.font = '18px monospace';
-  ctx.fillText('HAPPY BIRTHDAY FATIH!', 280, 80);
+  // draw spotlight under the header text so it illuminates area
+  updateAndDrawSpotlight();
+  ctx.fillText('HAPPY BIRTHDAY!', 280, 80);
 
-  // dancers (top left + right)
+  // dancers
   updateAndDrawDancers();
 
   // cake sprite
   drawPixelSprite(cakeData, 360, 240, 12);
 
-  // draw smiley ":)" below cake
+  // smiley + footer
   ctx.save();
   ctx.fillStyle = '#ffffff';
   ctx.font = '28px "Press Start 2P", monospace';
@@ -286,8 +383,6 @@ function drawScene(){
   const smile = ':)';
   const smileW = ctx.measureText(smile).width;
   ctx.fillText(smile, 400 - smileW/2, 360);
-
-  // small "made with fatih" in pixel font below smile
   ctx.font = '9px "Press Start 2P", monospace';
   const footer = 'made with fatih';
   const fw = ctx.measureText(footer).width;
@@ -297,13 +392,14 @@ function drawScene(){
   // placeholder characters
   ctx.fillStyle = '#fff'; ctx.fillRect(250, 320, 28, 56); ctx.fillRect(520, 320, 28, 56);
 
+  // walkers and NPCs
+  updateAndDrawWalkers();
+  updateAndDrawNPCs();
+
   // blinking lights
   if (lightBlink % 40 < 20) {
     ctx.fillStyle = '#ff0'; ctx.fillRect(100,100,8,8); ctx.fillRect(692,100,8,8);
   }
-
-  // walkers under cake
-  updateAndDrawWalkers();
 
   lightBlink++;
   requestAnimationFrame(drawScene);
@@ -312,11 +408,7 @@ function drawScene(){
 /* ---------- EFFECTS (visual only) ---------- */
 /* Snow */
 const snow = [];
-class SnowFlake {
-  constructor() { this.x = rand(0,800); this.y = rand(-600,0); this.vy = rand(0.4,1.2); this.vx = rand(-0.4,0.4); this.size = rand(1.2,3.2); }
-  update(){ this.x += this.vx; this.y += this.vy; if (this.y > 620) { this.x = rand(0,800); this.y = rand(-80,-10); } }
-  draw(g){ g.beginPath(); g.fillStyle='rgba(255,255,255,0.9)'; g.arc(this.x,this.y,this.size,0,Math.PI*2); g.fill(); }
-}
+class SnowFlake { constructor() { this.x = rand(0,800); this.y = rand(-600,0); this.vy = rand(0.4,1.2); this.vx = rand(-0.4,0.4); this.size = rand(1.2,3.2); } update(){ this.x += this.vx; this.y += this.vy; if (this.y > 620) { this.x = rand(0,800); this.y = rand(-80,-10); } } draw(g){ g.beginPath(); g.fillStyle='rgba(255,255,255,0.9)'; g.arc(this.x,this.y,this.size,0,Math.PI*2); g.fill(); } }
 for (let i=0;i<120;i++) snow.push(new SnowFlake());
 
 /* Fireworks & confetti (visual only) */
@@ -381,6 +473,7 @@ document.addEventListener('DOMContentLoaded', () => {
   resizeCanvas();
   initWalkers();
   initDancers();
+  initClouds();
   drawScene();
   drawEffects();
 });
