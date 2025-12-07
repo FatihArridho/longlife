@@ -1,5 +1,5 @@
 /* ========================
-   script.js (lengkap + toggle kamera + pixelate)
+   script.js (final: added "made with fatih" footer on photobooth capture)
    ======================== */
 
 /* ---------- ELEMENTS ---------- */
@@ -20,7 +20,6 @@ const birthdayMessage = document.getElementById('birthday-message');
 const photoboothModal = document.getElementById('photobooth-modal');
 const cameraVideo = document.getElementById('camera-video');
 const cameraEffectCanvas = document.getElementById('camera-effect-canvas');
-// note: `takePhotoBtn` & `closePhotoBtn` exist in HTML; we'll also add extra controls dynamically
 const takePhotoBtn = document.getElementById('take-photo-btn');
 const closePhotoBtn = document.getElementById('close-photo-btn');
 
@@ -52,7 +51,7 @@ function resizeCanvas(){
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
-/* ---------- PIXEL ART DRAW (simple placeholder) ---------- */
+/* ---------- PIXEL ART DRAW (cake + smile + footer text) ---------- */
 function drawPixelSprite(data, x, y, scale = 1){
   const palette = ['#ff0000','#0000ff','#ffff00','#00ff00','#800080','#ffa500','#ffffff','#000000'];
   for(let r=0;r<data.length;r++){
@@ -76,10 +75,37 @@ const cakeData = [
 let lightBlink = 0;
 function drawScene(){
   ctx.clearRect(0,0,800,600);
+  // background
   ctx.fillStyle = '#000'; ctx.fillRect(0,0,800,600);
-  ctx.fillStyle = '#fff'; ctx.font = '18px monospace'; ctx.fillText('HAPPY BIRTHDAY!', 280, 80);
-  drawPixelSprite(cakeData, 360, 260, 12);
+
+  // banner text (pixel-like)
+  ctx.fillStyle = '#fff';
+  ctx.font = '18px monospace';
+  ctx.fillText('HAPPY BIRTHDAY!', 280, 80);
+
+  // cake sprite
+  drawPixelSprite(cakeData, 360, 240, 12);
+
+  // draw smiley ":)" below cake (centered)
+  ctx.save();
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '28px "Press Start 2P", monospace';
+  ctx.textBaseline = 'top';
+  const smile = ':)';
+  const smileW = ctx.measureText(smile).width;
+  ctx.fillText(smile, 400 - smileW/2, 360);
+
+  // small "made with fatih" in pixel font below smile
+  ctx.font = '9px "Press Start 2P", monospace';
+  const footer = 'made with fatih';
+  const fw = ctx.measureText(footer).width;
+  ctx.fillText(footer, 400 - fw/2, 396);
+  ctx.restore();
+
+  // placeholder characters
   ctx.fillStyle = '#fff'; ctx.fillRect(250, 320, 28, 56); ctx.fillRect(520, 320, 28, 56);
+
+  // blinking lights
   if (lightBlink % 40 < 20) {
     ctx.fillStyle = '#ff0'; ctx.fillRect(100,100,8,8); ctx.fillRect(692,100,8,8);
   }
@@ -177,25 +203,18 @@ kirimBtn.addEventListener('click', () => {
 /* crt toggle */
 crtToggle.addEventListener('click', () => { isCrtOn = !isCrtOn; document.body.classList.toggle('crt-on', isCrtOn); });
 
-/* ---------- PHOTO BOOTH: camera + pixelate + switch camera ---------- */
-
-/*
-  Implementation notes:
-  - facingMode variable controls camera direction ('user' or 'environment')
-  - UI controls for "ganti kamera" and "pixelate" dibuat secara dinamis saat modal terbuka
-  - pixelate capture: draw to small temp canvas, scale back up with imageSmoothingEnabled = false
-*/
+/* ---------- PHOTO BOOTH: camera + pixelate + switch camera + face detection ---------- */
 
 let mediaStream = null;
-let facingMode = 'user'; // 'user' (selfie) or 'environment' (rear)
+let facingMode = 'user'; // 'user' or 'environment'
 let pixelateEnabled = false;
 
-// ensure camera effect canvas logical size
+// camera effect canvas logical size
 cameraEffectCanvas.width = 800; cameraEffectCanvas.height = 600;
 const camECTX = cameraEffectCanvas.getContext('2d');
 camECTX.imageSmoothingEnabled = false;
 
-// dynamic UI controls inside photobooth modal
+/* dynamic UI controls inside photobooth modal */
 function ensurePhotoUI(){
   const card = photoboothModal.querySelector('.pixel-card');
   if (!card) return;
@@ -216,9 +235,7 @@ function ensurePhotoUI(){
   toggleCameraBtn.style.padding = '6px 10px';
   toggleCameraBtn.textContent = 'GANTI KAMERA';
   toggleCameraBtn.addEventListener('click', async () => {
-    // flip facing mode
     facingMode = (facingMode === 'user') ? 'environment' : 'user';
-    // restart camera with new facingMode
     await restartCamera();
   });
 
@@ -250,19 +267,34 @@ function ensurePhotoUI(){
   extraRow.appendChild(pixelWrap);
 
   // insert before modal actions row
-  const actions = card.querySelector('.modal-actions') || card.querySelector('.modal-actions');
+  const actions = card.querySelector('.modal-actions');
   card.insertBefore(extraRow, actions);
 }
 
-// start camera with current facingMode
+/* Face detection: use FaceDetector API if available */
+let faceDetector = null;
+let faceDetectionEnabled = false;
+if ('FaceDetector' in window) {
+  try {
+    faceDetector = new FaceDetector({ fastMode: true, maxDetectedFaces: 5 });
+    faceDetectionEnabled = true;
+    console.log('FaceDetector available');
+  } catch (e) {
+    faceDetector = null;
+    faceDetectionEnabled = false;
+    console.warn('FaceDetector init failed', e);
+  }
+} else {
+  faceDetector = null;
+  faceDetectionEnabled = false;
+  console.log('FaceDetector not supported in this browser');
+}
+
+/* start camera with given facingMode */
 async function startCamera(){
   try {
-    // ensure UI
     ensurePhotoUI();
-
-    // stop previous
     stopCamera();
-
     const constraints = {
       video: {
         facingMode: { ideal: facingMode },
@@ -271,11 +303,10 @@ async function startCamera(){
       },
       audio: false
     };
-
     mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
     cameraVideo.srcObject = mediaStream;
     await cameraVideo.play();
-    requestAnimationFrame(drawCameraPreviewEffects);
+    requestAnimationFrame(drawCameraPreviewAndDetect);
   } catch (err) {
     console.warn('camera error', err);
     alert('Tidak bisa mengakses kamera. Pastikan izin kamera diberikan dan perangkat mendukung.');
@@ -284,10 +315,9 @@ async function startCamera(){
   }
 }
 
+/* restart camera (used for switching facingMode) */
 async function restartCamera(){
-  // stop and re-request camera with new facingMode
   stopCamera();
-  // tiny delay helps some devices to release and re-acquire
   await new Promise(r => setTimeout(r, 180));
   await startCamera();
 }
@@ -302,75 +332,92 @@ function stopCamera(){
   camECTX.clearRect(0,0,cameraEffectCanvas.width,cameraEffectCanvas.height);
 }
 
-/* preview sparkle animation */
-const previewParticles = [];
-class PreviewSpark {
-  constructor(){ this.x = rand(50,750); this.y = rand(50,550); this.vx = rand(-0.2,0.2); this.vy = rand(-0.05,0.05); this.size = rand(0.8,2.6); this.life = 100 + Math.floor(rand(0,100)); this.age = 0; this.color = `rgba(255,255,255,${rand(0.2,0.9)})`; }
-  update(){ this.x += this.vx; this.y += this.vy; this.age++; if (this.age > this.life){ this.age = 0; this.x = rand(50,750); this.y = rand(50,550); } }
-  draw(g){ g.fillStyle = this.color; g.beginPath(); g.arc(this.x,this.y,this.size,0,Math.PI*2); g.fill(); }
-}
-for (let i=0;i<18;i++) previewParticles.push(new PreviewSpark());
-
-function drawCameraPreviewEffects(){
+/* draw preview + face detection boxes (no sparkles) */
+let lastDetectionTime = 0;
+async function drawCameraPreviewAndDetect(timestamp){
   camECTX.clearRect(0,0,800,600);
-  camECTX.fillStyle = 'rgba(0,0,0,0.06)'; camECTX.fillRect(0,0,800,600);
-  previewParticles.forEach(p => { p.update(); p.draw(camECTX); });
-  if (!photoboothModal.classList.contains('hidden')) requestAnimationFrame(drawCameraPreviewEffects);
+  camECTX.fillStyle = 'rgba(0,0,0,0.06)';
+  camECTX.fillRect(0,0,800,600);
+
+  if (faceDetectionEnabled && faceDetector && (timestamp - lastDetectionTime > 150)) {
+    try {
+      const detectCanvas = document.createElement('canvas');
+      detectCanvas.width = 320;
+      detectCanvas.height = Math.floor((cameraVideo.videoHeight / cameraVideo.videoWidth) * 320) || 240;
+      const dctx = detectCanvas.getContext('2d');
+      const vw = cameraVideo.videoWidth, vh = cameraVideo.videoHeight;
+      const scale = Math.max(320 / vw, detectCanvas.height / vh);
+      const sw = 320 / scale;
+      const sh = detectCanvas.height / scale;
+      const sx = Math.max(0, (vw - sw) / 2);
+      const sy = Math.max(0, (vh - sh) / 2);
+      dctx.drawImage(cameraVideo, sx, sy, sw, sh, 0, 0, 320, detectCanvas.height);
+
+      const faces = await faceDetector.detect(detectCanvas);
+      lastDetectionTime = timestamp;
+      const scaleX = 800 / 320;
+      const scaleY = 600 / detectCanvas.height;
+      camECTX.lineWidth = 2;
+      camECTX.strokeStyle = 'rgba(0,255,128,0.9)';
+      camECTX.fillStyle = 'rgba(0,255,128,0.9)';
+      faces.forEach((f, i) => {
+        const b = f.boundingBox;
+        const x = b.x * scaleX;
+        const y = b.y * scaleY;
+        const w = b.width * scaleX;
+        const h = b.height * scaleY;
+        camECTX.strokeRect(x, y, w, h);
+        camECTX.font = '12px monospace';
+        camECTX.fillText(`face ${i+1}`, x + 4, y + 14);
+      });
+    } catch (err) {
+      console.warn('face detection error', err);
+      faceDetectionEnabled = false;
+    }
+  }
+
+  if (!photoboothModal.classList.contains('hidden')) {
+    requestAnimationFrame(drawCameraPreviewAndDetect);
+  } else {
+    camECTX.clearRect(0,0,800,600);
+  }
 }
 
-/* capture frame -> apply optional pixelation -> overlay effects -> download */
+/* capture frame -> optional pixelate -> overlay confetti/fireworks -> add footer -> download
+   sparkle removed from photobooth capture as requested */
 async function captureAndDownload(){
   const vw = cameraVideo.videoWidth, vh = cameraVideo.videoHeight;
   if (!vw || !vh) { alert('Video belum siap, coba lagi'); return; }
 
-  // standard out canvas 800x600
+  // out canvas 800x600
   const out = document.createElement('canvas'); out.width = 800; out.height = 600;
   const outCtx = out.getContext('2d');
 
-  // compute cover scaling to avoid black bars
+  // compute cover scaling
   const scale = Math.max(800 / vw, 600 / vh);
   const sw = 800 / scale; const sh = 600 / scale; const sx = (vw - sw) / 2; const sy = (vh - sh) / 2;
 
-  // draw raw video frame to temp canvas first (full-res)
-  const temp = document.createElement('canvas');
-  temp.width = vw; temp.height = vh;
-  const tctx = temp.getContext('2d');
-  tctx.drawImage(cameraVideo, 0, 0, vw, vh);
-
   if (pixelateEnabled) {
-    // pixelate pipeline:
-    // 1) draw scaled-down cropped frame to tiny canvas
-    // choose pixelation factor (smaller -> blockier). expose as constant
-    const pixelFactor = 16; // 16 = heavy pixelation; 8 = moderate; 32 = chunky
+    const pixelFactor = 16;
     const tinyW = Math.max(1, Math.floor(800 / pixelFactor));
     const tinyH = Math.max(1, Math.floor(600 / pixelFactor));
     const tiny = document.createElement('canvas'); tiny.width = tinyW; tiny.height = tinyH;
     const tinyCtx = tiny.getContext('2d');
-    // draw crop of the video into tiny canvas (use drawImage with crop)
     tinyCtx.drawImage(cameraVideo, sx, sy, sw, sh, 0, 0, tinyW, tinyH);
-    // then scale tiny back up to out canvas with imageSmoothingEnabled = false
     outCtx.imageSmoothingEnabled = false;
     outCtx.drawImage(tiny, 0, 0, tinyW, tinyH, 0, 0, 800, 600);
   } else {
-    // normal pipeline: draw cropped frame directly
     outCtx.drawImage(cameraVideo, sx, sy, sw, sh, 0, 0, 800, 600);
   }
 
-  // sparkle overlay
-  for (let i=0;i<80;i++){
-    const x = rand(120,680), y = rand(80,520), r = rand(1,4);
-    outCtx.fillStyle = `rgba(255,255,255,${rand(0.25,0.95)})`;
-    outCtx.beginPath(); outCtx.arc(x,y,r,0,Math.PI*2); outCtx.fill();
-  }
-
-  // confetti bits
+  // add confetti bits onto the captured image
   for (let i=0;i<120;i++){
     outCtx.fillStyle = `hsl(${rand(0,360)},100%,50%)`;
     const x = rand(120,680), y = rand(240,520), w = rand(4,10), h = rand(2,6);
     outCtx.fillRect(x,y,w,h);
   }
 
-  // small fireworks bursts
+  // small fireworks burst marks
   for (let i=0;i<3;i++){
     const cx = rand(200,600), cy = rand(120,400), n = 18 + Math.floor(rand(6,12));
     for (let k=0;k<n;k++){
@@ -381,10 +428,22 @@ async function captureAndDownload(){
     }
   }
 
-  // border
+  // small "made with fatih" footer (pixel font) centered near bottom
+  outCtx.save();
+  outCtx.fillStyle = '#ffffff';
+  outCtx.font = '9px "Press Start 2P", monospace';
+  outCtx.textBaseline = 'bottom';
+  const footerText = 'made with fatih';
+  const footerW = outCtx.measureText(footerText).width;
+  const footerX = (800 - footerW) / 2;
+  const footerY = 600 - 10; // 10px from bottom edge
+  outCtx.fillText(footerText, footerX, footerY);
+  outCtx.restore();
+
+  // border (pixel aesthetic)
   outCtx.strokeStyle = '#ffffff'; outCtx.lineWidth = 4; outCtx.strokeRect(8,8,800-16,600-16);
 
-  // finalize download
+  // download
   out.toBlob((blob) => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -393,9 +452,10 @@ async function captureAndDownload(){
     URL.revokeObjectURL(a.href);
   }, 'image/png');
 
-  // small flash feedback
-  camECTX.fillStyle = 'rgba(255,255,255,0.12)'; camECTX.fillRect(0,0,800,600);
-  setTimeout(()=> camECTX.clearRect(0,0,800,600), 80);
+  // small flash on preview canvas
+  camECTX.fillStyle = 'rgba(255,255,255,0.08)';
+  camECTX.fillRect(0,0,800,600);
+  setTimeout(()=> camECTX.clearRect(0,0,800,600), 60);
 }
 
 /* open camera modal -> ensure UI -> start camera */
@@ -415,8 +475,9 @@ closePhotoBtn.addEventListener('click', () => {
 takePhotoBtn.addEventListener('click', async () => {
   takePhotoBtn.disabled = true;
   await captureAndDownload();
-  // spawn main-screen visual effects
-  spawnConfettiBurst(400, 110); spawnFirework(360); spawnFirework(440);
+  // spawn main-screen visual effects (confetti & fireworks)
+  spawnConfettiBurst(400, 110);
+  spawnFirework(360); spawnFirework(440);
   setTimeout(()=> {
     photoboothModal.classList.add('hidden');
     stopCamera();
@@ -424,14 +485,14 @@ takePhotoBtn.addEventListener('click', async () => {
   }, 700);
 });
 
-/* fallback: if camera not supported */
+/* fallback if camera not supported */
 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
   photoBoothBtn.addEventListener('click', () => {
     alert('Kamera tidak tersedia di perangkat ini.');
   });
 }
 
-/* double-click snapshot on photo-booth button (quick fallback) */
+/* double-click fallback snapshot of main canvas */
 document.getElementById('photo-booth-btn')?.addEventListener('dblclick', () => {
   canvas.toBlob(b => {
     const a = document.createElement('a');
@@ -442,8 +503,6 @@ document.getElementById('photo-booth-btn')?.addEventListener('dblclick', () => {
   });
 });
 
-/* helper wrappers (already used above) */
+/* helper wrappers used above */
 function spawnConfettiBurst(x,count=60){ for (let i=0;i<count;i++) confetti.push(new Confetto(x + rand(-20,20), rand(460,540))); }
-
-/* spawnFirework already defined earlier (re-declare safe wrapper) */
 function spawnFirework(x){ fw_launchers.push(new FireworkLauncher(x ?? rand(80,720))); }
