@@ -1,34 +1,39 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>8-Bit Birthday</title>
-    <!-- Font Pixel: Press Start 2P dari Google Fonts (fallback ke monospace jika gagal) -->
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Tampilan Awal: Layar Hitam dengan Tombol MULAI -->
     <div id="start-screen" class="screen">
         <button id="start-btn" class="pixel-btn" tabindex="0">MULAI</button>
     </div>
 
-    <!-- Scene Utama: Pixel Art Scene -->
     <div id="main-scene" class="screen hidden">
-        <canvas id="pixel-canvas" width="800" height="600"></canvas>
-        <button id="open-letter-btn" class="pixel-btn small" tabindex="0">BUKA SURAT</button>
-        <button id="photo-booth-btn" class="pixel-btn small" tabindex="0">PHOTO BOOTH</button>
-        <button id="crt-toggle" class="pixel-btn small" tabindex="0">CRT ON/OFF</button>
-        <button id="download-btn" class="pixel-btn small hidden" tabindex="0">DOWNLOAD</button>
+        <div id="canvas-wrap">
+            <canvas id="pixel-canvas" width="800" height="600"></canvas>
+            <canvas id="effect-canvas" width="800" height="600"></canvas>
+        </div>
+
+        <div id="controls">
+            <button id="open-letter-btn" class="pixel-btn small" tabindex="0">BUKA SURAT</button>
+            <button id="photo-booth-btn" class="pixel-btn small" tabindex="0">PHOTO BOOTH</button>
+            <button id="crt-toggle" class="pixel-btn small" tabindex="0">CRT ON/OFF</button>
+            <button id="download-btn" class="pixel-btn small hidden" tabindex="0">DOWNLOAD</button>
+        </div>
     </div>
 
-    <!-- Modal Surat -->
-    <div id="letter-modal" class="modal hidden">
+    <div id="letter-modal" class="modal hidden" role="dialog" aria-modal="true">
         <div class="pixel-card">
             <h2>HAPPY BIRTHDAY!</h2>
-            <textarea id="birthday-message" placeholder="{{birthday_message}} - Tulis pesan ulang tahunmu di sini!" class="pixel-textarea"></textarea>
-            <button id="kirim-btn" class="pixel-btn" tabindex="0">KIRIM</button>
+            <textarea id="birthday-message" placeholder="Tulis pesan ulang tahunmu di sini!" class="pixel-textarea" maxlength="300"></textarea>
+            <div class="modal-actions">
+                <button id="kirim-btn" class="pixel-btn" tabindex="0">KIRIM</button>
+                <button id="close-letter-btn" class="pixel-btn" tabindex="0">TUTUP</button>
+            </div>
         </div>
     </div>
 
