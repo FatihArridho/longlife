@@ -1,5 +1,5 @@
 /* ========================
-   script.js (final: added "made with fatih" footer on photobooth capture)
+   script.js (capture clean: no sprinkle in photobooth capture)
    ======================== */
 
 /* ---------- ELEMENTS ---------- */
@@ -81,7 +81,7 @@ function drawScene(){
   // banner text (pixel-like)
   ctx.fillStyle = '#fff';
   ctx.font = '18px monospace';
-  ctx.fillText('HAPPY BIRTHDAY!', 280, 80);
+  ctx.fillText('HAPPY BIRTHDAY FATIH!', 280, 80);
 
   // cake sprite
   drawPixelSprite(cakeData, 360, 240, 12);
@@ -383,8 +383,8 @@ async function drawCameraPreviewAndDetect(timestamp){
   }
 }
 
-/* capture frame -> optional pixelate -> overlay confetti/fireworks -> add footer -> download
-   sparkle removed from photobooth capture as requested */
+/* capture frame -> optional pixelate -> add footer -> download
+   IMPORTANT: no confetti, no fireworks, no sparkle in capture */
 async function captureAndDownload(){
   const vw = cameraVideo.videoWidth, vh = cameraVideo.videoHeight;
   if (!vw || !vh) { alert('Video belum siap, coba lagi'); return; }
@@ -408,24 +408,6 @@ async function captureAndDownload(){
     outCtx.drawImage(tiny, 0, 0, tinyW, tinyH, 0, 0, 800, 600);
   } else {
     outCtx.drawImage(cameraVideo, sx, sy, sw, sh, 0, 0, 800, 600);
-  }
-
-  // add confetti bits onto the captured image
-  for (let i=0;i<120;i++){
-    outCtx.fillStyle = `hsl(${rand(0,360)},100%,50%)`;
-    const x = rand(120,680), y = rand(240,520), w = rand(4,10), h = rand(2,6);
-    outCtx.fillRect(x,y,w,h);
-  }
-
-  // small fireworks burst marks
-  for (let i=0;i<3;i++){
-    const cx = rand(200,600), cy = rand(120,400), n = 18 + Math.floor(rand(6,12));
-    for (let k=0;k<n;k++){
-      const ang = (Math.PI*2) * (k/n);
-      const dist = rand(8,38);
-      outCtx.fillStyle = `hsla(${rand(0,360)},100%,55%,${rand(0.35,0.95)})`;
-      outCtx.beginPath(); outCtx.arc(cx + Math.cos(ang)*dist, cy + Math.sin(ang)*dist, rand(1,3), 0, Math.PI*2); outCtx.fill();
-    }
   }
 
   // small "made with fatih" footer (pixel font) centered near bottom
@@ -452,10 +434,10 @@ async function captureAndDownload(){
     URL.revokeObjectURL(a.href);
   }, 'image/png');
 
-  // small flash on preview canvas
-  camECTX.fillStyle = 'rgba(255,255,255,0.08)';
+  // small flash on preview canvas (short)
+  camECTX.fillStyle = 'rgba(255,255,255,0.06)';
   camECTX.fillRect(0,0,800,600);
-  setTimeout(()=> camECTX.clearRect(0,0,800,600), 60);
+  setTimeout(()=> camECTX.clearRect(0,0,800,600), 40);
 }
 
 /* open camera modal -> ensure UI -> start camera */
@@ -471,13 +453,10 @@ closePhotoBtn.addEventListener('click', () => {
   stopCamera();
 });
 
-/* take photo handler */
+/* take photo handler (no main-screen effects after capture) */
 takePhotoBtn.addEventListener('click', async () => {
   takePhotoBtn.disabled = true;
   await captureAndDownload();
-  // spawn main-screen visual effects (confetti & fireworks)
-  spawnConfettiBurst(400, 110);
-  spawnFirework(360); spawnFirework(440);
   setTimeout(()=> {
     photoboothModal.classList.add('hidden');
     stopCamera();
