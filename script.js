@@ -1,5 +1,5 @@
 /* ========================
-   script.js (ALL FEATURES)
+   script.js (full — include start screen fix + MP3 music)
    - clean photobooth capture (no sparkle/confetti in downloaded photo)
    - pixelate option, camera switch, face detection preview
    - main canvas: cake, smiley, "made with fatih"
@@ -8,7 +8,7 @@
    - dancers (top-left + top-right)
    - clouds background, npc cats/dogs
    - spotlight header
-   - music chiptune (play/pause/mute)
+   - music via MP3 URL (play/pause/mute/volume)
    - photobooth frames + filters + polaroid printer animation + auto-download
    - NPC/dancer/walker chat bubbles
    ======================== */
@@ -49,13 +49,15 @@ function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 
 /* ---------- RESIZE FIX ---------- */
 function resizeCanvas(){
-  const wrap = canvasWrap;
+  const wrap = canvasWrap || document.body;
   const maxW = Math.min(window.innerWidth * 0.95, 800);
   const maxH = Math.min(window.innerHeight * 0.95, 600);
   const scale = Math.min(maxW / 800, maxH / 600);
   const intScale = Math.max(1, Math.floor(scale));
-  wrap.style.width = (800 * intScale) + 'px';
-  wrap.style.height = (600 * intScale) + 'px';
+  if (canvasWrap) {
+    canvasWrap.style.width = (800 * intScale) + 'px';
+    canvasWrap.style.height = (600 * intScale) + 'px';
+  }
   canvas.width = 800; canvas.height = 600;
   effectCanvas.width = 800; effectCanvas.height = 600;
   ctx.imageSmoothingEnabled = false;
@@ -180,9 +182,8 @@ function updateAndDrawDancers() {
       d.timer = 0;
       d.frame = (d.frame + 1) % 4;
       if (Math.random() < 0.06 && d.jumpTimer <= 0) d.jumpTimer = 8 + Math.floor(Math.random()*12);
-      // sometimes spawn bubble
       if (!d.bubble && Math.random() < 0.03) {
-        d.bubble = { text: randomBubbleText(), t: 130 }; // life ticks
+        d.bubble = { text: randomBubbleText(), t: 130 };
       }
     }
     let jumpOffset = 0;
@@ -192,7 +193,6 @@ function updateAndDrawDancers() {
       d.jumpTimer--;
     }
     drawDancerSmall(ctx, Math.round(d.x), Math.round(d.y - jumpOffset), d.color, d.frame, d.flip, jumpOffset);
-    // bubble draw
     if (d.bubble) {
       drawBubble(ctx, Math.round(d.x + 6), Math.round(d.y - 10), d.bubble.text, d.bubble.t);
       d.bubble.t--;
@@ -302,7 +302,6 @@ setInterval(() => { if (Math.random() < 0.25) spawnNPC(NPC_TYPES[Math.floor(Math
 
 /* ---------- CHAT BUBBLE UTIL ---------- */
 function drawBubble(ctx, x, y, text, life) {
-  // simple speech bubble; fade with life
   const alpha = clamp(life / 140, 0, 1);
   const pad = 6;
   ctx.save();
@@ -311,9 +310,8 @@ function drawBubble(ctx, x, y, text, life) {
   const w = Math.min(160, ctx.measureText(text).width + pad*2);
   const h = 18;
   ctx.fillStyle = 'rgba(255,255,255,0.95)';
-  ctx.fillRect(x - w/2, y - h, w, h, 4);
-  // tail
-  ctx.fillRect(x - 4, y - 4, 6, 4);
+  ctx.fillRect(x - w/2, y - h, w, h);
+  ctx.fillRect(x - 6, y - 6, 6, 6);
   ctx.fillStyle = '#000';
   ctx.fillText(text, x - w/2 + pad, y - 6);
   ctx.restore();
@@ -321,54 +319,6 @@ function drawBubble(ctx, x, y, text, life) {
 function randomBubbleText(){
   const msgs = ['happy bday!', 'woof woof', 'meong~', 'cake time!', 'party!', 'keren nih', 'sini foto!', 'yeay!', 'lets dance', '🎉'];
   return msgs[Math.floor(Math.random()*msgs.length)];
-}
-
-/* ---------- MAIN DRAW LOOP ---------- */
-function drawScene(){
-  ctx.clearRect(0,0,800,600);
-  ctx.fillStyle = '#000'; ctx.fillRect(0,0,800,600);
-
-  // clouds
-  updateAndDrawClouds();
-
-  // spotlight then header text
-  updateAndDrawSpotlight();
-  ctx.fillStyle = '#fff';
-  ctx.font = '18px monospace';
-  ctx.fillText('HAPPY BIRTHDAY!', 280, 80);
-
-  // dancers (top)
-  updateAndDrawDancers();
-
-  // cake sprite
-  drawPixelSprite(cakeData, 360, 240, 12);
-
-  // smiley + footer
-  ctx.save();
-  ctx.fillStyle = '#ffffff';
-  ctx.font = '28px "Press Start 2P", monospace';
-  ctx.textBaseline = 'top';
-  const smile = ':)';
-  const smileW = ctx.measureText(smile).width;
-  ctx.fillText(smile, 400 - smileW/2, 360);
-  ctx.font = '9px "Press Start 2P", monospace';
-  const footer = 'made with fatih';
-  const fw = ctx.measureText(footer).width;
-  ctx.fillText(footer, 400 - fw/2, 396);
-  ctx.restore();
-
-  // placeholder characters
-  ctx.fillStyle = '#fff'; ctx.fillRect(250, 320, 28, 56); ctx.fillRect(520, 320, 28, 56);
-
-  // walkers & npcs
-  updateAndDrawWalkers();
-  updateAndDrawNPCs();
-
-  // small blinking lights
-  if (lightBlink % 40 < 20) { ctx.fillStyle = '#ff0'; ctx.fillRect(100,100,8,8); ctx.fillRect(692,100,8,8); }
-
-  lightBlink++;
-  requestAnimationFrame(drawScene);
 }
 
 /* ---------- EFFECTS (visual only) ---------- */
@@ -400,137 +350,95 @@ function drawEffects(){
   requestAnimationFrame(drawEffects);
 }
 
-/* ---------- MUSIC: simple chiptune via WebAudio ---------- */
+/* ---------- MUSIC: play mp3 URL (HTMLAudioElement) ---------- */
+/* ganti MUSIC_URL dengan link mp3 kamu */
+const MUSIC_URL = 'https://k.top4top.io/m_3628wytop1.mp3'; // contoh gratis
+const audioPlayer = new Audio();
+audioPlayer.src = MUSIC_URL;
+audioPlayer.loop = true;
+audioPlayer.volume = 0.06; // default low volume
+audioPlayer.preload = 'auto';
 const audioState = { on: false, muted: false };
-let audioCtx = null, masterGain = null, musicLoopId = null;
-function initMusic() {
-  if (audioCtx) return;
-  try {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    masterGain = audioCtx.createGain();
-    masterGain.gain.value = 0.06; // low volume by default
-    masterGain.connect(audioCtx.destination);
-    // start loop scheduler
-    startMusicLoop();
-  } catch (e) {
-    console.warn('audio init failed', e);
-    audioCtx = null;
-  }
-}
-function startMusicLoop() {
-  if (!audioCtx) return;
-  const bpm = 90;
-  const beat = 60 / bpm;
-  const pattern = [
-    {note: 440, len: 1}, {note: 0, len: 0.25}, {note: 523.25, len: 1}, {note: 0, len: 0.25},
-    {note: 659.25, len: 1}, {note: 0, len: 0.5}, {note: 523.25, len: 1}
-  ];
-  let t0 = audioCtx.currentTime + 0.05;
-  let cursor = 0;
-  function schedulePattern() {
-    let now = audioCtx.currentTime;
-    let t = t0;
-    for (let i=0;i<pattern.length;i++){
-      const p = pattern[(cursor + i) % pattern.length];
-      if (p.note > 0) {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = 'square';
-        osc.frequency.value = p.note;
-        gain.gain.value = 0.08;
-        osc.connect(gain); gain.connect(masterGain);
-        osc.start(t);
-        gain.gain.setValueAtTime(gain.gain.value, t);
-        gain.gain.exponentialRampToValueAtTime(0.0001, t + p.len*beat*0.9);
-        osc.stop(t + p.len*beat);
-      }
-      t += p.len * beat;
-    }
-    t0 = t;
-    cursor = (cursor + pattern.length) % pattern.length;
-    musicLoopId = setTimeout(schedulePattern, (t - now - 0.05) * 1000);
-  }
-  schedulePattern();
-}
-function stopMusicLoop(){
-  if (musicLoopId) { clearTimeout(musicLoopId); musicLoopId = null; }
-}
-function toggleMusic(){
-  if (!audioCtx) initMusic();
-  if (!audioCtx) return;
-  if (!audioState.on) {
-    audioState.on = true;
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    startMusicLoop();
-  } else {
-    audioState.on = false;
-    stopMusicLoop();
-  }
-}
-function toggleMute(){
-  if (!masterGain) return;
-  audioState.muted = !audioState.muted;
-  masterGain.gain.value = audioState.muted ? 0 : 0.06;
-}
 
-/* create simple music UI (append to canvasWrap) */
 function ensureMusicUI(){
+  if (!canvasWrap) return;
   if (canvasWrap.querySelector('.music-controls')) return;
   const box = document.createElement('div');
   box.className = 'music-controls';
   box.style.position = 'absolute';
   box.style.right = '8px';
   box.style.top = '8px';
-  box.style.zIndex = '40';
+  box.style.zIndex = '60';
   box.style.display = 'flex';
   box.style.gap = '6px';
+
   const play = document.createElement('button');
-  play.textContent = '♫';
-  play.title = 'play/pause chiptune';
   play.className = 'pixel-btn';
-  play.onclick = () => { toggleMusic(); play.textContent = audioState.on ? '▮▮' : '♫'; };
+  play.title = 'play/pause music';
+  play.style.width = '44px';
+  play.style.height = '30px';
+  play.textContent = '♫';
+  play.onclick = async () => {
+    try {
+      if (!audioState.on) {
+        await audioPlayer.play();
+        audioState.on = true;
+        play.textContent = '▮▮';
+      } else {
+        audioPlayer.pause();
+        audioState.on = false;
+        play.textContent = '♫';
+      }
+    } catch (err) {
+      console.warn('audio play failed', err);
+      alert('Gagal memutar audio — cek URL mp3 atau blokir autoplay browser.');
+    }
+  };
+
   const mute = document.createElement('button');
-  mute.textContent = 'mute';
   mute.className = 'pixel-btn';
-  mute.onclick = () => { toggleMute(); mute.textContent = audioState.muted ? 'unmute' : 'mute'; };
-  box.appendChild(play); box.appendChild(mute);
+  mute.textContent = 'mute';
+  mute.style.height = '30px';
+  mute.onclick = () => {
+    audioState.muted = !audioState.muted;
+    audioPlayer.muted = audioState.muted;
+    mute.textContent = audioState.muted ? 'unmute' : 'mute';
+  };
+
+  const vol = document.createElement('input');
+  vol.type = 'range'; vol.min = '0'; vol.max = '1'; vol.step = '0.01'; vol.value = String(audioPlayer.volume);
+  vol.style.width = '80px';
+  vol.oninput = (e) => { audioPlayer.volume = parseFloat(e.target.value); };
+
+  box.appendChild(play);
+  box.appendChild(mute);
+  box.appendChild(vol);
+
   canvasWrap.style.position = 'relative';
   canvasWrap.appendChild(box);
 }
-ensureMusicUI();
 
 /* ---------- PHOTO BOOTH: camera + pixelate + switch camera + face detection + frames/filters + polaroid ---------- */
 let mediaStream = null;
 let facingMode = 'user';
 let pixelateEnabled = false;
 
-// effect canvas for camera preview
 cameraEffectCanvas.width = 800; cameraEffectCanvas.height = 600;
 const camECTX = cameraEffectCanvas.getContext('2d');
 camECTX.imageSmoothingEnabled = false;
 
-/* photobooth frames & filters data + UI helpers */
+/* photobooth frames & filters */
 const FRAME_OPTIONS = [
   { id: 'none', name: 'none', draw: (ctx,w,h)=>{} },
   { id: 'pixel-border', name: 'pixel border', draw: (ctx,w,h)=> {
       ctx.strokeStyle = '#fff'; ctx.lineWidth = 8; ctx.strokeRect(8,8,w-16,h-16);
-      // small corner pixels
       for (let i=0;i<6;i++){ ctx.fillRect(12 + i*8, 12, 4,4); ctx.fillRect(w - 16 - i*8, 12, 4,4); }
     } },
   { id: 'hearts', name: 'hearts', draw: (ctx,w,h)=> {
-      for (let i=0;i<9;i++){
-        const x = 24 + i*80;
-        ctx.fillStyle = 'rgba(255,100,140,0.9)';
-        // tiny pixel heart
-        ctx.fillRect(x, h-60, 6,6);
-        ctx.fillRect(x+6, h-56, 6,6);
-      }
+      for (let i=0;i<9;i++){ const x = 24 + i*80; ctx.fillStyle = 'rgba(255,100,140,0.9)'; ctx.fillRect(x, h-60, 6,6); ctx.fillRect(x+6, h-56, 6,6); }
     } },
   { id: 'vhs', name: 'vhs stripes', draw: (ctx,w,h)=> {
-      for (let i=0;i<6;i++){
-        ctx.fillStyle = `rgba(255,255,255,${0.02 + i*0.02})`;
-        ctx.fillRect(0, i*10, w, 2);
-      }
+      for (let i=0;i<6;i++){ ctx.fillStyle = `rgba(255,255,255,${0.02 + i*0.02})`; ctx.fillRect(0, i*10, w, 2); }
     } }
 ];
 
@@ -553,7 +461,7 @@ const FILTERS = [
 let selectedFrameId = 'none';
 let selectedFilterId = 'normal';
 
-/* dynamic UI controls inside photobooth modal (add frame/filter selects) */
+/* dynamic UI controls inside photobooth modal (frame/filter/pixelate/camera flip) */
 function ensurePhotoUI(){
   const card = photoboothModal.querySelector('.pixel-card');
   if (!card) return;
@@ -567,14 +475,12 @@ function ensurePhotoUI(){
   extraRow.style.justifyContent = 'center';
   extraRow.style.alignItems = 'center';
 
-  // toggle camera
   const toggleCameraBtn = document.createElement('button');
   toggleCameraBtn.className = 'pixel-btn';
   toggleCameraBtn.style.padding = '6px 10px';
   toggleCameraBtn.textContent = 'GANTI KAMERA';
   toggleCameraBtn.addEventListener('click', async () => { facingMode = (facingMode === 'user') ? 'environment' : 'user'; await restartCamera(); });
 
-  // pixelate checkbox
   const pixelWrap = document.createElement('label');
   pixelWrap.style.display='flex'; pixelWrap.style.alignItems='center'; pixelWrap.style.gap='6px'; pixelWrap.style.fontSize='10px';
   const pixelCheckbox = document.createElement('input'); pixelCheckbox.type='checkbox'; pixelCheckbox.style.width='14px'; pixelCheckbox.style.height='14px';
@@ -582,14 +488,12 @@ function ensurePhotoUI(){
   const pixelLabel = document.createElement('span'); pixelLabel.style.fontSize='8px'; pixelLabel.style.fontFamily="'Press Start 2P', monospace"; pixelLabel.textContent='pixelate';
   pixelWrap.appendChild(pixelCheckbox); pixelWrap.appendChild(pixelLabel);
 
-  // frames select
   const frameSelect = document.createElement('select');
   frameSelect.className = 'pixel-select';
   FRAME_OPTIONS.forEach(f => { const o = document.createElement('option'); o.value = f.id; o.textContent = f.name; frameSelect.appendChild(o); });
   frameSelect.value = selectedFrameId;
   frameSelect.addEventListener('change', e => { selectedFrameId = e.target.value; });
 
-  // filter select
   const filterSelect = document.createElement('select');
   filterSelect.className = 'pixel-select';
   FILTERS.forEach(f => { const o = document.createElement('option'); o.value = f.id; o.textContent = f.name; filterSelect.appendChild(o); });
@@ -636,7 +540,6 @@ let lastDetectionTime = 0;
 async function drawCameraPreviewAndDetect(timestamp){
   camECTX.clearRect(0,0,800,600);
   camECTX.fillStyle = 'rgba(0,0,0,0.06)'; camECTX.fillRect(0,0,800,600);
-  // draw video preview scaled cover into center of cameraEffectCanvas
   const vw = cameraVideo.videoWidth, vh = cameraVideo.videoHeight;
   if (vw && vh) {
     const scale = Math.max(800 / vw, 600 / vh);
@@ -665,14 +568,7 @@ async function drawCameraPreviewAndDetect(timestamp){
   else camECTX.clearRect(0,0,800,600);
 }
 
-/* photobooth capture pipeline:
-   - draw camera (cover) into out canvas
-   - apply pixelate (if enabled)
-   - apply selected filter
-   - draw selected frame
-   - draw footer text
-   - create polaroid element and animate drop (visual) while also auto-download
-*/
+/* photobooth capture pipeline */
 async function captureAndDownload(){
   const vw = cameraVideo.videoWidth, vh = cameraVideo.videoHeight;
   if (!vw || !vh) { alert('Video belum siap, coba lagi'); return; }
@@ -717,10 +613,10 @@ async function captureAndDownload(){
   // create image data url
   const dataURL = out.toDataURL('image/png');
 
-  // show polaroid printer animation (visual) then download
+  // show polaroid animation (visual) then download
   showPolaroidAnimation(dataURL);
 
-  // auto-download as well
+  // auto-download
   out.toBlob((blob) => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -735,7 +631,7 @@ async function captureAndDownload(){
   setTimeout(()=> camECTX.clearRect(0,0,800,600), 40);
 }
 
-/* polaroid animation: create element, animate drop and rotate then remove after time */
+/* polaroid animation */
 function showPolaroidAnimation(dataURL){
   const el = document.createElement('div');
   el.className = 'polaroid-print';
@@ -749,20 +645,95 @@ function showPolaroidAnimation(dataURL){
   img.style.width = '100%'; img.style.height = 'auto'; img.style.display='block'; img.style.borderRadius='3px';
   el.appendChild(img);
   document.body.appendChild(el);
-  // animate drop
   el.animate([
     { top: '-320px', transform: 'translateX(-50%) rotate(-6deg)', opacity: 0 },
     { top: '80px', transform: 'translateX(-50%) rotate(4deg)', opacity: 1 },
     { top: '60px', transform: 'translateX(-50%) rotate(0deg)', opacity: 1 }
   ], { duration: 900, easing: 'cubic-bezier(.2,.8,.2,1)' });
-  // after a while, slide out to left and remove
   setTimeout(()=> {
     el.animate([{ transform:'translateX(-50%) rotate(0deg) translateX(0)' }, { transform:'translateX(-400%) rotate(-20deg) translateX(0)' }], { duration: 700, easing: 'ease-in' });
     setTimeout(()=> el.remove(), 900);
   }, 2800);
 }
 
-/* open camera modal -> ensure UI -> start camera */
+/* ---------- MAIN DRAW LOOP ---------- */
+function drawScene(){
+  ctx.clearRect(0,0,800,600);
+  ctx.fillStyle = '#000'; ctx.fillRect(0,0,800,600);
+
+  // clouds
+  updateAndDrawClouds();
+
+  // spotlight + header
+  updateAndDrawSpotlight();
+  ctx.fillStyle = '#fff';
+  ctx.font = '18px monospace';
+  ctx.fillText('HAPPY BIRTHDAY!', 280, 80);
+
+  // dancers (top)
+  updateAndDrawDancers();
+
+  // cake sprite
+  drawPixelSprite(cakeData, 360, 240, 12);
+
+  // smiley + footer
+  ctx.save();
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '28px "Press Start 2P", monospace';
+  ctx.textBaseline = 'top';
+  const smile = ':)';
+  const smileW = ctx.measureText(smile).width;
+  ctx.fillText(smile, 400 - smileW/2, 360);
+  ctx.font = '9px "Press Start 2P", monospace';
+  const footer = 'made with fatih';
+  const fw = ctx.measureText(footer).width;
+  ctx.fillText(footer, 400 - fw/2, 396);
+  ctx.restore();
+
+  // placeholder characters
+  ctx.fillStyle = '#fff'; ctx.fillRect(250, 320, 28, 56); ctx.fillRect(520, 320, 28, 56);
+
+  // walkers & npcs
+  updateAndDrawWalkers();
+  updateAndDrawNPCs();
+
+  // small blinking lights
+  if (lightBlink % 40 < 20) { ctx.fillStyle = '#ff0'; ctx.fillRect(100,100,8,8); ctx.fillRect(692,100,8,8); }
+
+  lightBlink++;
+  requestAnimationFrame(drawScene);
+}
+
+/* ---------- BASIC INTERACTIONS ---------- */
+startBtn?.addEventListener('click', () => {
+  startScreen.classList.add('hidden');
+  mainScene.classList.remove('hidden');
+  // start main loop
+  drawScene();
+  drawEffects();
+});
+
+startBtn?.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') e.preventDefault(), startBtn.click(); });
+
+/* modal open/close */
+openLetterBtn.addEventListener('click', () => letterModal.classList.remove('hidden'));
+closeLetterBtn.addEventListener('click', () => letterModal.classList.add('hidden'));
+
+/* kirim (WA) */
+kirimBtn.addEventListener('click', () => {
+  const msg = birthdayMessage.value.trim();
+  if (!msg) { alert('Pesan tidak boleh kosong!'); return; }
+  window.location.href = `https://wa.me/6281511118515?text=${encodeURIComponent(msg)}`;
+  spawnConfettiBurst(400, 120);
+  for (let i=0;i<3;i++) spawnFirework(300 + i*80 + rand(-30,30));
+  letterModal.classList.add('hidden');
+  downloadBtn.classList.remove('hidden');
+});
+
+/* CRT toggle */
+crtToggle.addEventListener('click', () => { isCrtOn = !isCrtOn; document.body.classList.toggle('crt-on', isCrtOn); });
+
+/* ---------- PHOTO BOOTH UI hooks ---------- */
 photoBoothBtn.addEventListener('click', async () => { photoboothModal.classList.remove('hidden'); ensurePhotoUI(); await startCamera(); });
 closePhotoBtn.addEventListener('click', () => { photoboothModal.classList.add('hidden'); stopCamera(); });
 takePhotoBtn.addEventListener('click', async () => { takePhotoBtn.disabled=true; await captureAndDownload(); setTimeout(()=>{ photoboothModal.classList.add('hidden'); stopCamera(); takePhotoBtn.disabled=false; },700); });
@@ -771,7 +742,7 @@ if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
   photoBoothBtn.addEventListener('click', () => alert('Kamera tidak tersedia di perangkat ini.'));
 }
 
-/* double-click fallback snapshot of main canvas */
+/* double-click snapshot fallback */
 document.getElementById('photo-booth-btn')?.addEventListener('dblclick', () => {
   canvas.toBlob(b => {
     const a = document.createElement('a');
@@ -786,17 +757,16 @@ document.getElementById('photo-booth-btn')?.addEventListener('dblclick', () => {
 function spawnConfettiBurst(x,count=60){ for (let i=0;i<count;i++) confetti.push(new Confetto(x + rand(-20,20), rand(460,540))); }
 function spawnFirework(x){ fw_launchers.push(new FireworkLauncher(x ?? rand(80,720))); }
 
-/* ---------- STARTUP ---------- */
+/* ---------- STARTUP (do NOT auto-hide start screen) ---------- */
 document.addEventListener('DOMContentLoaded', () => {
-  startScreen.classList.add('hidden');
-  mainScene.classList.remove('hidden');
+  // tetap tunjukkan startScreen; pengguna harus klik start
   resizeCanvas();
   initWalkers();
   initDancers();
   initClouds();
-  drawScene();
-  drawEffects();
-  ensureMusicUI();
+  drawEffects(); // background effects can run
+  ensureMusicUI(); // music controls ready (manual play)
+  // drawScene will be started when user klik start (handler di atas)
 });
 
 /* ---------- EXTRA: small CSS insert for polaroid & music UI (inject) ---------- */
@@ -807,8 +777,7 @@ document.addEventListener('DOMContentLoaded', () => {
     .pixel-select { background:#111;color:#fff;border:1px solid #fff;padding:6px;font-family:monospace;border-radius:6px }
     .polaroid-print img { image-rendering: pixelated; }
     .music-controls .pixel-btn { font-size:14px; width:44px; height:30px; display:inline-flex; align-items:center; justify-content:center; }
+    .polaroid-print { image-rendering: pixelated; }
   `;
   document.head.appendChild(s);
 })();
-
-/* EOF */
