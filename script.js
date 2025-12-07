@@ -1,12 +1,16 @@
 /* ========================
-   script.js (with clouds, NPC cats/dogs, header spotlight)
-   - clean photobooth capture (no sparkles in downloaded photo)
+   script.js (ALL FEATURES)
+   - clean photobooth capture (no sparkle/confetti in downloaded photo)
    - pixelate option, camera switch, face detection preview
    - main canvas: cake, smiley, "made with fatih"
    - effects: fireworks, confetti, snow (visual only)
    - walkers (right->left) under cake
    - dancers (top-left + top-right)
-   - NEW: clouds background, NPC cat/dog, header spotlight
+   - clouds background, npc cats/dogs
+   - spotlight header
+   - music chiptune (play/pause/mute)
+   - photobooth frames + filters + polaroid printer animation + auto-download
+   - NPC/dancer/walker chat bubbles
    ======================== */
 
 /* ---------- ELEMENTS ---------- */
@@ -41,6 +45,7 @@ let isCrtOn = false;
 
 /* ---------- UTIL ---------- */
 function rand(a,b){ return Math.random()*(b-a)+a; }
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 
 /* ---------- RESIZE FIX ---------- */
 function resizeCanvas(){
@@ -97,46 +102,28 @@ function initClouds(){
   }
 }
 initClouds();
-
-// draw simple pixel cloud using rectangles (soft 8-bit)
 function drawCloud(ctx, x, y, s){
   const px = 6 * s;
   ctx.fillStyle = 'rgba(255,255,255,0.92)';
-  // cloud shape (3 blobs)
   ctx.fillRect(x, y+px, px*4, px*2);
   ctx.fillRect(x - px*1, y, px*3, px*2);
   ctx.fillRect(x + px*3, y, px*3, px*2);
 }
-
 function updateAndDrawClouds(){
   for (const c of clouds){
     c.x += c.speed;
     if (c.x > 900) c.x = -240 - rand(0,200);
-    // draw behind header: subtle (lower opacity already)
     drawCloud(ctx, Math.round(c.x), Math.round(c.y), c.scale);
   }
 }
 
 /* ---------- SPOTLIGHT (header lampu panggung) ---------- */
-const spotlight = {
-  x: 0, y: 50, // center y near header
-  dir: 1,
-  minX: 80,
-  maxX: 720,
-  speed: 1.0,
-  hue: 200,
-  hueDir: 1
-};
-
+const spotlight = { x: 0, y: 50, dir: 1, minX: 80, maxX: 720, speed: 1.0, hue: 200, hueDir: 1 };
 function updateAndDrawSpotlight(){
-  // move
   spotlight.x += spotlight.dir * spotlight.speed;
   if (spotlight.x < spotlight.minX || spotlight.x > spotlight.maxX) spotlight.dir *= -1;
-  // change hue slowly
   spotlight.hue += spotlight.hueDir * 0.2;
   if (spotlight.hue < 160 || spotlight.hue > 300) spotlight.hueDir *= -1;
-
-  // draw radial-ish spotlight using translucent ellipse
   const grd = ctx.createRadialGradient(spotlight.x, spotlight.y, 10, spotlight.x, spotlight.y, 220);
   const color = `hsla(${Math.floor(spotlight.hue)}, 90%, 60%, `;
   grd.addColorStop(0, color + '0.28)');
@@ -146,7 +133,6 @@ function updateAndDrawSpotlight(){
   ctx.beginPath();
   ctx.ellipse(spotlight.x, spotlight.y+40, 220, 60, 0, 0, Math.PI*2);
   ctx.fill();
-  // small bright center
   ctx.fillStyle = `hsla(${Math.floor(spotlight.hue)}, 100%, 75%, 0.12)`;
   ctx.beginPath();
   ctx.arc(spotlight.x, spotlight.y+30, 36, 0, Math.PI*2);
@@ -161,21 +147,21 @@ function initDancers() {
   const y = 62;
   const colors = ['#ff6b6b','#ffd166','#6bcB77','#7ec8ff','#d291ff'];
   for (let i=0;i<2;i++){
-    dancers.push({ x: leftX + i*28, y: y + (i%2===0?0:2), originX: leftX + i*28, originY: y + (i%2===0?0:2), frame: Math.floor(Math.random()*4), timer: Math.floor(Math.random()*10), color: colors[i % colors.length], flip:false, jumpTimer:0 });
+    dancers.push({ x: leftX + i*28, y: y + (i%2===0?0:2), originX: leftX + i*28, originY: y + (i%2===0?0:2), frame: Math.floor(Math.random()*4), timer: Math.floor(Math.random()*10), color: colors[i % colors.length], flip:false, jumpTimer:0, bubble:null });
   }
   for (let i=0;i<2;i++){
-    dancers.push({ x: rightX + i*28, y: y + (i%2===0?0:2), originX: rightX + i*28, originY: y + (i%2===0?0:2), frame: Math.floor(Math.random()*4), timer: Math.floor(Math.random()*10), color: colors[(i+2) % colors.length], flip:true, jumpTimer:0 });
+    dancers.push({ x: rightX + i*28, y: y + (i%2===0?0:2), originX: rightX + i*28, originY: y + (i%2===0?0:2), frame: Math.floor(Math.random()*4), timer: Math.floor(Math.random()*10), color: colors[(i+2) % colors.length], flip:true, jumpTimer:0, bubble:null });
   }
 }
 initDancers();
 
-function drawDancer(ctx, x, y, color, frame, flip=false, jump=0) {
+function drawDancerSmall(ctx, x, y, color, frame, flip=false, jump=0) {
   const px = 2;
   const jy = -Math.max(0, jump);
   ctx.fillStyle = '#ffffff';
-  ctx.fillRect(x + 2*px, y + 0*px + jy, 2*px, 2*px); // head
+  ctx.fillRect(x + 2*px, y + 0*px + jy, 2*px, 2*px);
   ctx.fillStyle = color;
-  ctx.fillRect(x + 2*px, y + 2*px + jy, 2*px, 3*px); // body
+  ctx.fillRect(x + 2*px, y + 2*px + jy, 2*px, 3*px);
   ctx.fillStyle = color;
   if (frame === 0) { ctx.fillRect(x + px*1, y + 3*px + jy, px, 2*px); ctx.fillRect(x + px*4, y + 3*px + jy, px, 2*px); }
   else if (frame === 1) { ctx.fillRect(x + px*1, y + 1*px + jy, px, 2*px); ctx.fillRect(x + px*4, y + 1*px + jy, px, 2*px); }
@@ -194,6 +180,10 @@ function updateAndDrawDancers() {
       d.timer = 0;
       d.frame = (d.frame + 1) % 4;
       if (Math.random() < 0.06 && d.jumpTimer <= 0) d.jumpTimer = 8 + Math.floor(Math.random()*12);
+      // sometimes spawn bubble
+      if (!d.bubble && Math.random() < 0.03) {
+        d.bubble = { text: randomBubbleText(), t: 130 }; // life ticks
+      }
     }
     let jumpOffset = 0;
     if (d.jumpTimer > 0) {
@@ -201,14 +191,20 @@ function updateAndDrawDancers() {
       jumpOffset = Math.sin((progress/ (8 + 6)) * Math.PI) * 6;
       d.jumpTimer--;
     }
-    drawDancer(ctx, Math.round(d.x), Math.round(d.y - jumpOffset), d.color, d.frame, d.flip, jumpOffset);
+    drawDancerSmall(ctx, Math.round(d.x), Math.round(d.y - jumpOffset), d.color, d.frame, d.flip, jumpOffset);
+    // bubble draw
+    if (d.bubble) {
+      drawBubble(ctx, Math.round(d.x + 6), Math.round(d.y - 10), d.bubble.text, d.bubble.t);
+      d.bubble.t--;
+      if (d.bubble.t <= 0) d.bubble = null;
+    }
   }
 }
 
 /* ---------- WALKER (people walking under cake) ---------- */
 const walkers = [];
 const WALKER_COUNT = 4;
-function createWalker(startX, y, speed, scale=1.0) { return { x: startX, y, speed, scale, frameTimer: 0, frameIndex: 0 }; }
+function createWalker(startX, y, speed, scale=1.0) { return { x: startX, y, speed, scale, frameTimer: 0, frameIndex: 0, bubble:null }; }
 function initWalkers() {
   walkers.length = 0;
   const baseY = 440;
@@ -241,6 +237,7 @@ function updateAndDrawWalkers() {
     if (w.frameTimer > (12 - Math.floor(w.speed*4))) {
       w.frameTimer = 0;
       w.frameIndex = (w.frameIndex + 1) % 2;
+      if (!w.bubble && Math.random() < 0.02) w.bubble = { text: randomBubbleText(), t: 80 };
     }
     if (w.x < -40) {
       w.x = 820 + rand(0, 240);
@@ -248,128 +245,99 @@ function updateAndDrawWalkers() {
       w.frameIndex = 0;
     }
     drawWalker(ctx, Math.round(w.x), Math.round(w.y), Math.round(w.scale * 2), w.frameIndex);
+    if (w.bubble) {
+      drawBubble(ctx, Math.round(w.x), Math.round(w.y - 18), w.bubble.text, w.bubble.t);
+      w.bubble.t--;
+      if (w.bubble.t <= 0) w.bubble = null;
+    }
   }
 }
 
 /* ---------- NPC (cats & dogs) - appear, run, sometimes sit & blink ---------- */
 const npcs = [];
 const NPC_TYPES = ['cat','dog'];
-
 function spawnNPC(type='cat') {
-  const yBase = 470; // ground level near walkers
+  const yBase = 470;
   const speed = rand(1.4, 3.0);
-  const startX = -60; // left offscreen
-  const npc = {
-    type,
-    x: startX,
-    y: yBase + (type==='cat' ? rand(-6,6) : rand(-4,8)),
-    speed,
-    state: 'running', // 'running' or 'sitting'
-    frame: 0,
-    timer: 0,
-    blinkTimer: Math.floor(rand(60,240))
-  };
+  const startX = -60;
+  const npc = { type, x: startX, y: yBase + (type==='cat' ? rand(-6,6) : rand(-4,8)), speed, state: 'running', frame: 0, timer: 0, blinkTimer: Math.floor(rand(60,240)), bubble:null };
   npcs.push(npc);
 }
-
-// basic pixel sprite for npc; small and simple
 function drawNPC(ctx, n) {
   const px = 2;
-  const x = Math.round(n.x);
-  const y = Math.round(n.y);
-  // body color: cat gray, dog brown
+  const x = Math.round(n.x), y = Math.round(n.y);
   const bodyColor = (n.type === 'cat') ? '#cfcfcf' : '#d4a373';
-  // head
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(x + 1*px, y + 0*px, 3*px, 2*px);
-  // ears for cat
-  if (n.type === 'cat') {
-    ctx.fillRect(x + 1*px, y - 1*px, 1*px, 1*px);
-    ctx.fillRect(x + 3*px, y - 1*px, 1*px, 1*px);
-  }
-  // body
+  if (n.type === 'cat') { ctx.fillRect(x + 1*px, y - 1*px, 1*px, 1*px); ctx.fillRect(x + 3*px, y - 1*px, 1*px, 1*px); }
   ctx.fillStyle = bodyColor;
   ctx.fillRect(x + 1*px, y + 2*px, 3*px, 2*px);
-  // tail for cat
-  if (n.type === 'cat') {
-    ctx.fillRect(x - 1*px, y + 2*px, 1*px, 1*px);
-  } else {
-    // small tail for dog
-    ctx.fillRect(x + 4*px, y + 2*px, 1*px, 1*px);
-  }
-  // eyes (blink)
+  if (n.type === 'cat') ctx.fillRect(x - 1*px, y + 2*px, 1*px, 1*px); else ctx.fillRect(x + 4*px, y + 2*px, 1*px, 1*px);
   ctx.fillStyle = '#000';
-  if (n.blinkTimer > 0 && n.blinkTimer % 20 < 3) {
-    // closed (line)
-    ctx.fillRect(x + 1*px, y + 1*px, 1*px, 1*px);
-    ctx.fillRect(x + 3*px, y + 1*px, 1*px, 1*px);
-  } else {
-    ctx.fillRect(x + 1*px, y + 1*px, 1*px, 1*px);
-    ctx.fillRect(x + 3*px, y + 1*px, 1*px, 1*px);
-  }
+  ctx.fillRect(x + 1*px, y + 1*px, 1*px, 1*px);
+  ctx.fillRect(x + 3*px, y + 1*px, 1*px, 1*px);
 }
-
 function updateAndDrawNPCs(){
   for (let i = npcs.length - 1; i >= 0; i--) {
     const n = npcs[i];
     n.timer++;
     if (n.state === 'running') {
       n.x += n.speed;
-      // occasionally switch to sitting if in range
-      if (Math.random() < 0.002 && n.x > 120 && n.x < 680) {
-        n.state = 'sitting';
-        n.sitDuration = 80 + Math.floor(rand(0,140));
-      }
+      if (Math.random() < 0.003 && n.x > 120 && n.x < 680) { n.state = 'sitting'; n.sitDuration = 80 + Math.floor(rand(0,140)); if (Math.random()<0.3) n.bubble = { text: randomBubbleText(), t: 140 }; }
     } else if (n.state === 'sitting') {
       n.sitDuration--;
-      if (n.sitDuration <= 0) {
-        n.state = 'running';
-      }
+      if (n.sitDuration <= 0) { n.state = 'running'; if (Math.random()<0.4) n.bubble = { text: randomBubbleText(), t: 90 }; }
     }
-    // blink timer decrement
     n.blinkTimer--;
     if (n.blinkTimer <= 0) n.blinkTimer = Math.floor(rand(60,240));
-
-    // draw depending on state (if sitting, draw slightly different posture)
-    if (n.state === 'sitting') {
-      // draw sitting by moving body lower and not moving x
-      drawNPC(ctx, n);
-    } else {
-      drawNPC(ctx, n);
+    drawNPC(ctx, n);
+    if (n.bubble) {
+      drawBubble(ctx, Math.round(n.x + 10), Math.round(n.y - 14), n.bubble.text, n.bubble.t);
+      n.bubble.t--; if (n.bubble.t<=0) n.bubble=null;
     }
-
-    // remove when fully off right
-    if (n.x > 920) {
-      npcs.splice(i,1);
-    }
+    if (n.x > 920) npcs.splice(i,1);
   }
 }
+setInterval(() => { if (Math.random() < 0.25) spawnNPC(NPC_TYPES[Math.floor(Math.random()*NPC_TYPES.length)]); }, 1600);
 
-// occasional spawner for NPCs
-setInterval(() => {
-  if (Math.random() < 0.25) {
-    const t = NPC_TYPES[Math.floor(Math.random()*NPC_TYPES.length)];
-    spawnNPC(t);
-  }
-}, 1600);
+/* ---------- CHAT BUBBLE UTIL ---------- */
+function drawBubble(ctx, x, y, text, life) {
+  // simple speech bubble; fade with life
+  const alpha = clamp(life / 140, 0, 1);
+  const pad = 6;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.font = '10px monospace';
+  const w = Math.min(160, ctx.measureText(text).width + pad*2);
+  const h = 18;
+  ctx.fillStyle = 'rgba(255,255,255,0.95)';
+  ctx.fillRect(x - w/2, y - h, w, h, 4);
+  // tail
+  ctx.fillRect(x - 4, y - 4, 6, 4);
+  ctx.fillStyle = '#000';
+  ctx.fillText(text, x - w/2 + pad, y - 6);
+  ctx.restore();
+}
+function randomBubbleText(){
+  const msgs = ['happy bday!', 'woof woof', 'meong~', 'cake time!', 'party!', 'keren nih', 'sini foto!', 'yeay!', 'lets dance', '🎉'];
+  return msgs[Math.floor(Math.random()*msgs.length)];
+}
 
 /* ---------- MAIN DRAW LOOP ---------- */
 function drawScene(){
   ctx.clearRect(0,0,800,600);
-  // background
   ctx.fillStyle = '#000'; ctx.fillRect(0,0,800,600);
 
-  // clouds (behind header)
+  // clouds
   updateAndDrawClouds();
 
-  // banner text & spotlight
+  // spotlight then header text
+  updateAndDrawSpotlight();
   ctx.fillStyle = '#fff';
   ctx.font = '18px monospace';
-  // draw spotlight under the header text so it illuminates area
-  updateAndDrawSpotlight();
   ctx.fillText('HAPPY BIRTHDAY!', 280, 80);
 
-  // dancers
+  // dancers (top)
   updateAndDrawDancers();
 
   // cake sprite
@@ -392,14 +360,12 @@ function drawScene(){
   // placeholder characters
   ctx.fillStyle = '#fff'; ctx.fillRect(250, 320, 28, 56); ctx.fillRect(520, 320, 28, 56);
 
-  // walkers and NPCs
+  // walkers & npcs
   updateAndDrawWalkers();
   updateAndDrawNPCs();
 
-  // blinking lights
-  if (lightBlink % 40 < 20) {
-    ctx.fillStyle = '#ff0'; ctx.fillRect(100,100,8,8); ctx.fillRect(692,100,8,8);
-  }
+  // small blinking lights
+  if (lightBlink % 40 < 20) { ctx.fillStyle = '#ff0'; ctx.fillRect(100,100,8,8); ctx.fillRect(692,100,8,8); }
 
   lightBlink++;
   requestAnimationFrame(drawScene);
@@ -412,8 +378,7 @@ class SnowFlake { constructor() { this.x = rand(0,800); this.y = rand(-600,0); t
 for (let i=0;i<120;i++) snow.push(new SnowFlake());
 
 /* Fireworks & confetti (visual only) */
-const fw_launchers = [];
-const fw_sparks = [];
+const fw_launchers = []; const fw_sparks = [];
 class FireworkLauncher { constructor(x){ this.x = x ?? rand(80,720); this.y=600; this.vy=rand(-7.5,-5.5); this.vx=rand(-1.2,1.2); this.color = `hsl(${rand(0,360)},100%,50%)`; this.exploded=false; } update(){ if (!this.exploded){ this.x += this.vx; this.y += this.vy; this.vy += 0.18; if (this.vy >= -1.0) this.exploded = true; } } draw(g){ if (!this.exploded){ g.fillStyle = this.color; g.beginPath(); g.arc(this.x,this.y,3,0,Math.PI*2); g.fill(); } } }
 class FireworkSpark { constructor(x,y,vx,vy,color){ this.x=x; this.y=y; this.vx=vx; this.vy=vy; this.color=color; this.life=40 + Math.floor(rand(0,30)); this.age=0; } update(){ this.vy += 0.06; this.x += this.vx; this.y += this.vy; this.age++; } draw(g){ const alpha = Math.max(0,1 - this.age/this.life); g.globalAlpha = alpha; g.fillStyle = this.color; g.fillRect(this.x, this.y, 2, 2); g.globalAlpha = 1; } }
 function spawnFirework(x){ fw_launchers.push(new FireworkLauncher(x)); }
@@ -424,79 +389,117 @@ function spawnConfettiBurst(x,count=60){ for (let i=0;i<count;i++) confetti.push
 
 function drawEffects(){
   ectx.clearRect(0,0,800,600);
-
   if (Math.random() < 0.02) spawnFirework();
-
   for (let i = fw_launchers.length - 1; i >= 0; i--){
-    const L = fw_launchers[i];
-    L.update();
-    L.draw(ectx);
-    if (L.exploded) {
-      const sparks = 18 + Math.floor(rand(6,20));
-      for (let k=0;k<sparks;k++){
-        const angle = rand(0, Math.PI*2);
-        const speed = rand(1.6,4.2);
-        fw_sparks.push(new FireworkSpark(L.x, L.y, Math.cos(angle)*speed, Math.sin(angle)*speed, L.color));
-      }
-      fw_launchers.splice(i,1);
-    }
+    const L = fw_launchers[i]; L.update(); L.draw(ectx);
+    if (L.exploded) { const sparks = 18 + Math.floor(rand(6,20)); for (let k=0;k<sparks;k++){ const angle = rand(0, Math.PI*2); const speed = rand(1.6,4.2); fw_sparks.push(new FireworkSpark(L.x, L.y, Math.cos(angle)*speed, Math.sin(angle)*speed, L.color)); } fw_launchers.splice(i,1); }
   }
-
-  for (let i = fw_sparks.length - 1; i >= 0; i--){
-    const s = fw_sparks[i];
-    s.update(); s.draw(ectx);
-    if (s.age > s.life) fw_sparks.splice(i,1);
-  }
-
-  for (let i = confetti.length - 1; i >= 0; i--){
-    const c = confetti[i];
-    c.update(); c.draw(ectx);
-    if (c.age > c.life || c.y > 700) confetti.splice(i,1);
-  }
-
+  for (let i = fw_sparks.length - 1; i >= 0; i--){ const s = fw_sparks[i]; s.update(); s.draw(ectx); if (s.age > s.life) fw_sparks.splice(i,1); }
+  for (let i = confetti.length - 1; i >= 0; i--){ const c = confetti[i]; c.update(); c.draw(ectx); if (c.age > c.life || c.y > 700) confetti.splice(i,1); }
   for (let i=0;i<snow.length;i++){ snow[i].update(); snow[i].draw(ectx); }
-
   requestAnimationFrame(drawEffects);
 }
 
-/* ---------- BASIC INTERACTIONS ---------- */
-startBtn?.addEventListener('click', () => {
-  startScreen.classList.add('hidden');
-  mainScene.classList.remove('hidden');
-  drawScene(); drawEffects();
-});
-startBtn?.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') e.preventDefault(), startBtn.click(); });
+/* ---------- MUSIC: simple chiptune via WebAudio ---------- */
+const audioState = { on: false, muted: false };
+let audioCtx = null, masterGain = null, musicLoopId = null;
+function initMusic() {
+  if (audioCtx) return;
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0.06; // low volume by default
+    masterGain.connect(audioCtx.destination);
+    // start loop scheduler
+    startMusicLoop();
+  } catch (e) {
+    console.warn('audio init failed', e);
+    audioCtx = null;
+  }
+}
+function startMusicLoop() {
+  if (!audioCtx) return;
+  const bpm = 90;
+  const beat = 60 / bpm;
+  const pattern = [
+    {note: 440, len: 1}, {note: 0, len: 0.25}, {note: 523.25, len: 1}, {note: 0, len: 0.25},
+    {note: 659.25, len: 1}, {note: 0, len: 0.5}, {note: 523.25, len: 1}
+  ];
+  let t0 = audioCtx.currentTime + 0.05;
+  let cursor = 0;
+  function schedulePattern() {
+    let now = audioCtx.currentTime;
+    let t = t0;
+    for (let i=0;i<pattern.length;i++){
+      const p = pattern[(cursor + i) % pattern.length];
+      if (p.note > 0) {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.value = p.note;
+        gain.gain.value = 0.08;
+        osc.connect(gain); gain.connect(masterGain);
+        osc.start(t);
+        gain.gain.setValueAtTime(gain.gain.value, t);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + p.len*beat*0.9);
+        osc.stop(t + p.len*beat);
+      }
+      t += p.len * beat;
+    }
+    t0 = t;
+    cursor = (cursor + pattern.length) % pattern.length;
+    musicLoopId = setTimeout(schedulePattern, (t - now - 0.05) * 1000);
+  }
+  schedulePattern();
+}
+function stopMusicLoop(){
+  if (musicLoopId) { clearTimeout(musicLoopId); musicLoopId = null; }
+}
+function toggleMusic(){
+  if (!audioCtx) initMusic();
+  if (!audioCtx) return;
+  if (!audioState.on) {
+    audioState.on = true;
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    startMusicLoop();
+  } else {
+    audioState.on = false;
+    stopMusicLoop();
+  }
+}
+function toggleMute(){
+  if (!masterGain) return;
+  audioState.muted = !audioState.muted;
+  masterGain.gain.value = audioState.muted ? 0 : 0.06;
+}
 
-document.addEventListener('DOMContentLoaded', () => {
-  startScreen.classList.add('hidden');
-  mainScene.classList.remove('hidden');
-  resizeCanvas();
-  initWalkers();
-  initDancers();
-  initClouds();
-  drawScene();
-  drawEffects();
-});
+/* create simple music UI (append to canvasWrap) */
+function ensureMusicUI(){
+  if (canvasWrap.querySelector('.music-controls')) return;
+  const box = document.createElement('div');
+  box.className = 'music-controls';
+  box.style.position = 'absolute';
+  box.style.right = '8px';
+  box.style.top = '8px';
+  box.style.zIndex = '40';
+  box.style.display = 'flex';
+  box.style.gap = '6px';
+  const play = document.createElement('button');
+  play.textContent = '♫';
+  play.title = 'play/pause chiptune';
+  play.className = 'pixel-btn';
+  play.onclick = () => { toggleMusic(); play.textContent = audioState.on ? '▮▮' : '♫'; };
+  const mute = document.createElement('button');
+  mute.textContent = 'mute';
+  mute.className = 'pixel-btn';
+  mute.onclick = () => { toggleMute(); mute.textContent = audioState.muted ? 'unmute' : 'mute'; };
+  box.appendChild(play); box.appendChild(mute);
+  canvasWrap.style.position = 'relative';
+  canvasWrap.appendChild(box);
+}
+ensureMusicUI();
 
-/* modal open/close */
-openLetterBtn.addEventListener('click', () => letterModal.classList.remove('hidden'));
-closeLetterBtn.addEventListener('click', () => letterModal.classList.add('hidden'));
-
-/* kirim (WA) */
-kirimBtn.addEventListener('click', () => {
-  const msg = birthdayMessage.value.trim();
-  if (!msg) { alert('Pesan tidak boleh kosong!'); return; }
-  window.location.href = `https://wa.me/6281511118515?text=${encodeURIComponent(msg)}`;
-  spawnConfettiBurst(400, 120);
-  for (let i=0;i<3;i++) spawnFirework(300 + i*80 + rand(-30,30));
-  letterModal.classList.add('hidden');
-  downloadBtn.classList.remove('hidden');
-});
-
-/* CRT toggle */
-crtToggle.addEventListener('click', () => { isCrtOn = !isCrtOn; document.body.classList.toggle('crt-on', isCrtOn); });
-
-/* ---------- PHOTO BOOTH: camera + pixelate + switch camera + face detection ---------- */
+/* ---------- PHOTO BOOTH: camera + pixelate + switch camera + face detection + frames/filters + polaroid ---------- */
 let mediaStream = null;
 let facingMode = 'user';
 let pixelateEnabled = false;
@@ -506,12 +509,56 @@ cameraEffectCanvas.width = 800; cameraEffectCanvas.height = 600;
 const camECTX = cameraEffectCanvas.getContext('2d');
 camECTX.imageSmoothingEnabled = false;
 
+/* photobooth frames & filters data + UI helpers */
+const FRAME_OPTIONS = [
+  { id: 'none', name: 'none', draw: (ctx,w,h)=>{} },
+  { id: 'pixel-border', name: 'pixel border', draw: (ctx,w,h)=> {
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 8; ctx.strokeRect(8,8,w-16,h-16);
+      // small corner pixels
+      for (let i=0;i<6;i++){ ctx.fillRect(12 + i*8, 12, 4,4); ctx.fillRect(w - 16 - i*8, 12, 4,4); }
+    } },
+  { id: 'hearts', name: 'hearts', draw: (ctx,w,h)=> {
+      for (let i=0;i<9;i++){
+        const x = 24 + i*80;
+        ctx.fillStyle = 'rgba(255,100,140,0.9)';
+        // tiny pixel heart
+        ctx.fillRect(x, h-60, 6,6);
+        ctx.fillRect(x+6, h-56, 6,6);
+      }
+    } },
+  { id: 'vhs', name: 'vhs stripes', draw: (ctx,w,h)=> {
+      for (let i=0;i<6;i++){
+        ctx.fillStyle = `rgba(255,255,255,${0.02 + i*0.02})`;
+        ctx.fillRect(0, i*10, w, 2);
+      }
+    } }
+];
+
+const FILTERS = [
+  { id:'normal', name:'normal', apply: (ctx,w,h)=>{} },
+  { id:'sepia', name:'sepia', apply: (ctx,w,h)=> {
+      const imgData = ctx.getImageData(0,0,w,h); const d = imgData.data;
+      for (let i=0;i<d.length;i+=4){ const r=d[i], g=d[i+1], b=d[i+2];
+        d[i] = clamp((r*0.393 + g*0.769 + b*0.189),0,255);
+        d[i+1] = clamp((r*0.349 + g*0.686 + b*0.168),0,255);
+        d[i+2] = clamp((r*0.272 + g*0.534 + b*0.131),0,255);
+      } ctx.putImageData(imgData,0,0);
+    } },
+  { id:'bw', name:'b/w', apply: (ctx,w,h)=> {
+      const imgData = ctx.getImageData(0,0,w,h); const d = imgData.data;
+      for (let i=0;i<d.length;i+=4){ const v = (d[i]+d[i+1]+d[i+2])/3; d[i]=d[i+1]=d[i+2]=v; } ctx.putImageData(imgData,0,0);
+    } }
+];
+
+let selectedFrameId = 'none';
+let selectedFilterId = 'normal';
+
+/* dynamic UI controls inside photobooth modal (add frame/filter selects) */
 function ensurePhotoUI(){
   const card = photoboothModal.querySelector('.pixel-card');
   if (!card) return;
   let extraRow = card.querySelector('.photobooth-extras');
   if (extraRow) return;
-
   extraRow = document.createElement('div');
   extraRow.className = 'photobooth-extras';
   extraRow.style.marginTop = '10px';
@@ -520,60 +567,51 @@ function ensurePhotoUI(){
   extraRow.style.justifyContent = 'center';
   extraRow.style.alignItems = 'center';
 
+  // toggle camera
   const toggleCameraBtn = document.createElement('button');
   toggleCameraBtn.className = 'pixel-btn';
   toggleCameraBtn.style.padding = '6px 10px';
   toggleCameraBtn.textContent = 'GANTI KAMERA';
-  toggleCameraBtn.addEventListener('click', async () => {
-    facingMode = (facingMode === 'user') ? 'environment' : 'user';
-    await restartCamera();
-  });
+  toggleCameraBtn.addEventListener('click', async () => { facingMode = (facingMode === 'user') ? 'environment' : 'user'; await restartCamera(); });
 
+  // pixelate checkbox
   const pixelWrap = document.createElement('label');
-  pixelWrap.style.display = 'flex';
-  pixelWrap.style.alignItems = 'center';
-  pixelWrap.style.gap = '6px';
-  pixelWrap.style.fontSize = '10px';
-  pixelWrap.style.userSelect = 'none';
+  pixelWrap.style.display='flex'; pixelWrap.style.alignItems='center'; pixelWrap.style.gap='6px'; pixelWrap.style.fontSize='10px';
+  const pixelCheckbox = document.createElement('input'); pixelCheckbox.type='checkbox'; pixelCheckbox.style.width='14px'; pixelCheckbox.style.height='14px';
+  pixelCheckbox.addEventListener('change', (e)=>{ pixelateEnabled = e.target.checked; });
+  const pixelLabel = document.createElement('span'); pixelLabel.style.fontSize='8px'; pixelLabel.style.fontFamily="'Press Start 2P', monospace"; pixelLabel.textContent='pixelate';
+  pixelWrap.appendChild(pixelCheckbox); pixelWrap.appendChild(pixelLabel);
 
-  const pixelCheckbox = document.createElement('input');
-  pixelCheckbox.type = 'checkbox';
-  pixelCheckbox.style.width = '14px';
-  pixelCheckbox.style.height = '14px';
-  pixelCheckbox.addEventListener('change', (e) => {
-    pixelateEnabled = e.target.checked;
-  });
+  // frames select
+  const frameSelect = document.createElement('select');
+  frameSelect.className = 'pixel-select';
+  FRAME_OPTIONS.forEach(f => { const o = document.createElement('option'); o.value = f.id; o.textContent = f.name; frameSelect.appendChild(o); });
+  frameSelect.value = selectedFrameId;
+  frameSelect.addEventListener('change', e => { selectedFrameId = e.target.value; });
 
-  const pixelLabel = document.createElement('span');
-  pixelLabel.style.fontSize = '8px';
-  pixelLabel.style.fontFamily = "'Press Start 2P', monospace";
-  pixelLabel.textContent = 'pixelate';
-
-  pixelWrap.appendChild(pixelCheckbox);
-  pixelWrap.appendChild(pixelLabel);
+  // filter select
+  const filterSelect = document.createElement('select');
+  filterSelect.className = 'pixel-select';
+  FILTERS.forEach(f => { const o = document.createElement('option'); o.value = f.id; o.textContent = f.name; filterSelect.appendChild(o); });
+  filterSelect.value = selectedFilterId;
+  filterSelect.addEventListener('change', e => { selectedFilterId = e.target.value; });
 
   extraRow.appendChild(toggleCameraBtn);
   extraRow.appendChild(pixelWrap);
+  extraRow.appendChild(frameSelect);
+  extraRow.appendChild(filterSelect);
 
   const actions = card.querySelector('.modal-actions');
   card.insertBefore(extraRow, actions);
 }
 
-/* FaceDetector usage if available (graceful fallback) */
-let faceDetector = null;
-let faceDetectionEnabled = false;
+/* FaceDetector usage if available */
+let faceDetector = null, faceDetectionEnabled = false;
 if ('FaceDetector' in window) {
-  try {
-    faceDetector = new FaceDetector({ fastMode: true, maxDetectedFaces: 5 });
-    faceDetectionEnabled = true;
-    console.log('FaceDetector available');
-  } catch (e) {
-    faceDetector = null; faceDetectionEnabled = false; console.warn('FaceDetector init failed', e);
-  }
-} else {
-  faceDetector = null; faceDetectionEnabled = false; console.log('FaceDetector not supported');
+  try { faceDetector = new FaceDetector({ fastMode: true, maxDetectedFaces: 5 }); faceDetectionEnabled = true; } catch(e){ faceDetector=null; faceDetectionEnabled=false; console.warn(e); }
 }
 
+/* start / restart / stop camera */
 async function startCamera(){
   try {
     ensurePhotoUI();
@@ -593,93 +631,96 @@ async function startCamera(){
 async function restartCamera(){ stopCamera(); await new Promise(r=>setTimeout(r,180)); await startCamera(); }
 function stopCamera(){ if (mediaStream) { mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; } cameraVideo.pause(); cameraVideo.srcObject=null; camECTX.clearRect(0,0,800,600); }
 
+/* preview + face detect loop */
 let lastDetectionTime = 0;
 async function drawCameraPreviewAndDetect(timestamp){
   camECTX.clearRect(0,0,800,600);
-  camECTX.fillStyle = 'rgba(0,0,0,0.06)';
-  camECTX.fillRect(0,0,800,600);
-
+  camECTX.fillStyle = 'rgba(0,0,0,0.06)'; camECTX.fillRect(0,0,800,600);
+  // draw video preview scaled cover into center of cameraEffectCanvas
+  const vw = cameraVideo.videoWidth, vh = cameraVideo.videoHeight;
+  if (vw && vh) {
+    const scale = Math.max(800 / vw, 600 / vh);
+    const sw = 800 / scale, sh = 600 / scale, sx = (vw - sw)/2, sy = (vh - sh)/2;
+    camECTX.drawImage(cameraVideo, sx, sy, sw, sh, 0, 0, 800, 600);
+  }
   if (faceDetectionEnabled && faceDetector && (timestamp - lastDetectionTime > 150)) {
     try {
       const detectCanvas = document.createElement('canvas');
       detectCanvas.width = 320;
       detectCanvas.height = Math.floor((cameraVideo.videoHeight / cameraVideo.videoWidth) * 320) || 240;
       const dctx = detectCanvas.getContext('2d');
-      const vw = cameraVideo.videoWidth, vh = cameraVideo.videoHeight;
-      const scale = Math.max(320 / vw, detectCanvas.height / vh);
-      const sw = 320 / scale; const sh = detectCanvas.height / scale;
-      const sx = Math.max(0, (vw - sw) / 2); const sy = Math.max(0, (vh - sh) / 2);
+      const vw2 = cameraVideo.videoWidth, vh2 = cameraVideo.videoHeight;
+      const scale2 = Math.max(320 / vw2, detectCanvas.height / vh2);
+      const sw = 320 / scale2; const sh = detectCanvas.height / scale2;
+      const sx = Math.max(0, (vw2 - sw) / 2); const sy = Math.max(0, (vh2 - sh) / 2);
       dctx.drawImage(cameraVideo, sx, sy, sw, sh, 0, 0, 320, detectCanvas.height);
-
       const faces = await faceDetector.detect(detectCanvas);
       lastDetectionTime = timestamp;
-      const scaleX = 800 / 320;
-      const scaleY = 600 / detectCanvas.height;
-      camECTX.lineWidth = 2;
-      camECTX.strokeStyle = 'rgba(0,255,128,0.9)';
-      camECTX.fillStyle = 'rgba(0,255,128,0.9)';
-      faces.forEach((f, i) => {
-        const b = f.boundingBox;
-        const x = b.x * scaleX;
-        const y = b.y * scaleY;
-        const w = b.width * scaleX;
-        const h = b.height * scaleY;
-        camECTX.strokeRect(x, y, w, h);
-        camECTX.font = '12px monospace';
-        camECTX.fillText(`face ${i+1}`, x + 4, y + 14);
-      });
-    } catch (err) {
-      console.warn('face detection error', err);
-      faceDetectionEnabled = false;
-    }
+      const scaleX = 800 / 320; const scaleY = 600 / detectCanvas.height;
+      camECTX.lineWidth = 2; camECTX.strokeStyle = 'rgba(0,255,128,0.9)'; camECTX.fillStyle = 'rgba(0,255,128,0.9)';
+      faces.forEach((f,i)=>{ const b=f.boundingBox; const x=b.x*scaleX, y=b.y*scaleY, w=b.width*scaleX, h=b.height*scaleY; camECTX.strokeRect(x,y,w,h); camECTX.font='12px monospace'; camECTX.fillText(`face ${i+1}`, x+4,y+14); });
+    } catch (err) { console.warn('face detection error', err); faceDetectionEnabled=false; }
   }
-
-  if (!photoboothModal.classList.contains('hidden')) {
-    requestAnimationFrame(drawCameraPreviewAndDetect);
-  } else {
-    camECTX.clearRect(0,0,800,600);
-  }
+  if (!photoboothModal.classList.contains('hidden')) requestAnimationFrame(drawCameraPreviewAndDetect);
+  else camECTX.clearRect(0,0,800,600);
 }
 
-/* capture -> pixelate (optional) -> add footer -> download (CLEAN: no effects) */
+/* photobooth capture pipeline:
+   - draw camera (cover) into out canvas
+   - apply pixelate (if enabled)
+   - apply selected filter
+   - draw selected frame
+   - draw footer text
+   - create polaroid element and animate drop (visual) while also auto-download
+*/
 async function captureAndDownload(){
   const vw = cameraVideo.videoWidth, vh = cameraVideo.videoHeight;
   if (!vw || !vh) { alert('Video belum siap, coba lagi'); return; }
-
   const out = document.createElement('canvas'); out.width = 800; out.height = 600;
   const outCtx = out.getContext('2d');
-
   const scale = Math.max(800 / vw, 600 / vh);
   const sw = 800 / scale; const sh = 600 / scale; const sx = (vw - sw) / 2; const sy = (vh - sh) / 2;
-
   if (pixelateEnabled) {
     const pixelFactor = 16;
     const tinyW = Math.max(1, Math.floor(800 / pixelFactor));
     const tinyH = Math.max(1, Math.floor(600 / pixelFactor));
     const tiny = document.createElement('canvas'); tiny.width = tinyW; tiny.height = tinyH;
-    const tinyCtx = tiny.getContext('2d');
-    tinyCtx.drawImage(cameraVideo, sx, sy, sw, sh, 0, 0, tinyW, tinyH);
+    const tctx = tiny.getContext('2d');
+    tctx.drawImage(cameraVideo, sx, sy, sw, sh, 0, 0, tinyW, tinyH);
     outCtx.imageSmoothingEnabled = false;
     outCtx.drawImage(tiny, 0, 0, tinyW, tinyH, 0, 0, 800, 600);
   } else {
     outCtx.drawImage(cameraVideo, sx, sy, sw, sh, 0, 0, 800, 600);
   }
 
-  // add small "made with fatih" footer (pixel font) centered near bottom
+  // apply filter
+  const filter = FILTERS.find(f => f.id === selectedFilterId);
+  if (filter && filter.apply) filter.apply(outCtx, 800, 600);
+
+  // draw selected frame
+  const frame = FRAME_OPTIONS.find(f => f.id === selectedFrameId);
+  if (frame && frame.draw) frame.draw(outCtx, 800, 600);
+
+  // add footer
   outCtx.save();
   outCtx.fillStyle = '#ffffff';
   outCtx.font = '9px "Press Start 2P", monospace';
   outCtx.textBaseline = 'bottom';
   const footerText = 'made with fatih';
   const footerW = outCtx.measureText(footerText).width;
-  const footerX = (800 - footerW) / 2;
-  const footerY = 600 - 10;
-  outCtx.fillText(footerText, footerX, footerY);
+  outCtx.fillText(footerText, (800 - footerW) / 2, 600 - 10);
   outCtx.restore();
 
-  // border (pixel aesthetic)
+  // border
   outCtx.strokeStyle = '#ffffff'; outCtx.lineWidth = 4; outCtx.strokeRect(8,8,800-16,600-16);
 
+  // create image data url
+  const dataURL = out.toDataURL('image/png');
+
+  // show polaroid printer animation (visual) then download
+  showPolaroidAnimation(dataURL);
+
+  // auto-download as well
   out.toBlob((blob) => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -688,36 +729,49 @@ async function captureAndDownload(){
     URL.revokeObjectURL(a.href);
   }, 'image/png');
 
-  // small flash for feedback
+  // small camera flash
   camECTX.fillStyle = 'rgba(255,255,255,0.06)';
   camECTX.fillRect(0,0,800,600);
   setTimeout(()=> camECTX.clearRect(0,0,800,600), 40);
 }
 
-/* open/close camera modal */
-photoBoothBtn.addEventListener('click', async () => {
-  photoboothModal.classList.remove('hidden');
-  ensurePhotoUI();
-  await startCamera();
-});
-closePhotoBtn.addEventListener('click', () => {
-  photoboothModal.classList.add('hidden');
-  stopCamera();
-});
-takePhotoBtn.addEventListener('click', async () => {
-  takePhotoBtn.disabled = true;
-  await captureAndDownload();
+/* polaroid animation: create element, animate drop and rotate then remove after time */
+function showPolaroidAnimation(dataURL){
+  const el = document.createElement('div');
+  el.className = 'polaroid-print';
+  Object.assign(el.style, {
+    position: 'fixed', left: '50%', top: '-320px', transform: 'translateX(-50%) rotate(-6deg)',
+    width: '320px', height: '240px', background:'#222', padding: '10px', boxSizing:'border-box',
+    display:'flex', alignItems:'flex-start', justifyContent:'center', zIndex:9999, borderRadius:'6px', boxShadow:'0 10px 30px rgba(0,0,0,0.6)'
+  });
+  const img = document.createElement('img');
+  img.src = dataURL;
+  img.style.width = '100%'; img.style.height = 'auto'; img.style.display='block'; img.style.borderRadius='3px';
+  el.appendChild(img);
+  document.body.appendChild(el);
+  // animate drop
+  el.animate([
+    { top: '-320px', transform: 'translateX(-50%) rotate(-6deg)', opacity: 0 },
+    { top: '80px', transform: 'translateX(-50%) rotate(4deg)', opacity: 1 },
+    { top: '60px', transform: 'translateX(-50%) rotate(0deg)', opacity: 1 }
+  ], { duration: 900, easing: 'cubic-bezier(.2,.8,.2,1)' });
+  // after a while, slide out to left and remove
   setTimeout(()=> {
-    photoboothModal.classList.add('hidden');
-    stopCamera();
-    takePhotoBtn.disabled = false;
-  }, 700);
-});
+    el.animate([{ transform:'translateX(-50%) rotate(0deg) translateX(0)' }, { transform:'translateX(-400%) rotate(-20deg) translateX(0)' }], { duration: 700, easing: 'ease-in' });
+    setTimeout(()=> el.remove(), 900);
+  }, 2800);
+}
+
+/* open camera modal -> ensure UI -> start camera */
+photoBoothBtn.addEventListener('click', async () => { photoboothModal.classList.remove('hidden'); ensurePhotoUI(); await startCamera(); });
+closePhotoBtn.addEventListener('click', () => { photoboothModal.classList.add('hidden'); stopCamera(); });
+takePhotoBtn.addEventListener('click', async () => { takePhotoBtn.disabled=true; await captureAndDownload(); setTimeout(()=>{ photoboothModal.classList.add('hidden'); stopCamera(); takePhotoBtn.disabled=false; },700); });
+
 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
   photoBoothBtn.addEventListener('click', () => alert('Kamera tidak tersedia di perangkat ini.'));
 }
 
-/* double-click snapshot fallback */
+/* double-click fallback snapshot of main canvas */
 document.getElementById('photo-booth-btn')?.addEventListener('dblclick', () => {
   canvas.toBlob(b => {
     const a = document.createElement('a');
@@ -731,5 +785,30 @@ document.getElementById('photo-booth-btn')?.addEventListener('dblclick', () => {
 /* helper wrappers */
 function spawnConfettiBurst(x,count=60){ for (let i=0;i<count;i++) confetti.push(new Confetto(x + rand(-20,20), rand(460,540))); }
 function spawnFirework(x){ fw_launchers.push(new FireworkLauncher(x ?? rand(80,720))); }
+
+/* ---------- STARTUP ---------- */
+document.addEventListener('DOMContentLoaded', () => {
+  startScreen.classList.add('hidden');
+  mainScene.classList.remove('hidden');
+  resizeCanvas();
+  initWalkers();
+  initDancers();
+  initClouds();
+  drawScene();
+  drawEffects();
+  ensureMusicUI();
+});
+
+/* ---------- EXTRA: small CSS insert for polaroid & music UI (inject) ---------- */
+(function injectStyles(){
+  const s = document.createElement('style');
+  s.textContent = `
+    .pixel-btn { background:#111;border:1px solid #fff;color:#fff;padding:6px 8px;font-family:monospace;border-radius:6px;cursor:pointer }
+    .pixel-select { background:#111;color:#fff;border:1px solid #fff;padding:6px;font-family:monospace;border-radius:6px }
+    .polaroid-print img { image-rendering: pixelated; }
+    .music-controls .pixel-btn { font-size:14px; width:44px; height:30px; display:inline-flex; align-items:center; justify-content:center; }
+  `;
+  document.head.appendChild(s);
+})();
 
 /* EOF */
